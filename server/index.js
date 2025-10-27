@@ -234,7 +234,6 @@ const buzzLocks = new Set();
 // =======================
 // 🛡️ CORS CONFIG (clean, unified)
 // =======================
-const cors = require("cors");
 
 const allowedOrigins = [
   "https://rombuzz.com",
