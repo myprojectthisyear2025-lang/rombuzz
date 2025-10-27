@@ -6,9 +6,11 @@ import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE = import.meta.env.VITE_API_BASE;
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE || "https://rombuzz-api.onrender.com/api";
+const CLIENT_ID =
+  import.meta?.env?.VITE_GOOGLE_CLIENT_ID ||
+  "579443399527-3q3lpblalkiqces1d0etdgjfj301b75l.apps.googleusercontent.com";
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
