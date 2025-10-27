@@ -243,6 +243,20 @@ app.use(
 
 // Allow preflight (OPTIONS) requests globally
 //app.use(cors());
+import cors from "cors";
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://rombuzz.com",
+      "https://www.rombuzz.com",
+      "https://rombuzz.vercel.app",
+    ],
+    credentials: true,
+  })
+);
 
 // Basic middleware setup
 app.use(express.json({ limit: "10mb" }));
