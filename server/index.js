@@ -230,36 +230,33 @@ const app = express();
 const server = http.createServer(app);
 // Simple in-process lock to serialize buzz per pair
 const buzzLocks = new Set();
-// =======================
-// 🛡️ CORS FIX FOR LOCAL DEV
-// =======================
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
-  })
-);
 
-// Allow preflight (OPTIONS) requests globally
-//app.use(cors());
+// =======================
+// 🛡️ CORS CONFIG (clean, unified)
+// =======================
 const cors = require("cors");
 
+const allowedOrigins = [
+  "https://rombuzz.com",
+  "https://www.rombuzz.com",
+  "https://rombuzz.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "https://rombuzz.com",
-      "https://www.rombuzz.com",
-      "https://rombuzz.vercel.app",
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("CORS not allowed for this origin: " + origin));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
-
 
 
 // Basic middleware setup
@@ -288,11 +285,18 @@ async function createNotification({ fromId, toId, type, message }) {
 // =======================
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: [
+      "https://rombuzz.com",
+      "https://www.rombuzz.com",
+      "https://rombuzz.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:5173",
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
 });
+
 let onlineUsers = {};
 
 // ✅ Top-level notification helper (NOT inside io.on)
