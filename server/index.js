@@ -243,7 +243,7 @@ app.use(
 
 // Allow preflight (OPTIONS) requests globally
 //app.use(cors());
-import cors from "cors";
+const cors = require("cors");
 
 app.use(
   cors({
@@ -254,9 +254,11 @@ app.use(
       "https://www.rombuzz.com",
       "https://rombuzz.vercel.app",
     ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
+
 
 // Basic middleware setup
 app.use(express.json({ limit: "10mb" }));
