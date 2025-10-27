@@ -5,7 +5,9 @@ import logo from "../assets/logo.png"; // ensure path is correct
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
-const API_BASE = "http://localhost:4000/api";
+//const API_BASE = "http://localhost:4000/api";
+const API_BASE = import.meta.env.VITE_API_BASE;
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const Login = ({ setUser }) => {
   const [email, setEmail] = useState("");

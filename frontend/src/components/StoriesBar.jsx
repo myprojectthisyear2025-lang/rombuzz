@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaPlus, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function StoriesBar({ onCreateStory }) {
   const [stories, setStories] = useState([]);

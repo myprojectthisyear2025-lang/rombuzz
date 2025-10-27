@@ -18,7 +18,7 @@ import {
 import AiWingmanPanel from "../components/AiWingmanPanel";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE = "http://localhost:4000/api";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 // Reaction emojis for long-press palette
 const REACTION_SET = ["❤️", "😂", "😢", "🤗", "😡"];
