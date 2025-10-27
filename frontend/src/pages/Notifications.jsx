@@ -16,7 +16,8 @@ import {
 import { ensureSocketAuth } from "../socket";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE =
+  import.meta?.env?.VITE_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
