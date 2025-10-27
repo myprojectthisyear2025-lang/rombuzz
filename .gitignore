@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# environment and secret files
+.env
+server/.env
+frontend/.env
+backend/.env
+
+# local database
+server/db.json
+
+# build outputs
+frontend/build
+frontend/dist

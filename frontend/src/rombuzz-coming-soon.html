@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RomBuzz — Coming Soon</title>
+  <meta name="description" content="RomBuzz is almost here. A fresh way to meet in the middle.">
+  <style>
+    :root {
+      --primary: #ef476f;
+      --secondary: #ff9f1c;
+      --bg1: #ff6b6b;
+      --bg2: #f7b267;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: #111;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2));
+      display: grid;
+      place-items: center;
+    }
+    .card {
+      width: min(960px, 92vw);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      background: #fff;
+    }
+    .hero {
+      position: relative;
+      height: clamp(240px, 45vw, 420px);
+      background: #111 center/cover no-repeat;
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+    }
+    /* 🔁 Replace this with your actual image URL or path */
+    .hero::before {
+      --IMAGE_URL: url('assets/rombuzz-coming-soon.jpg'); /* e.g. /images/hero.jpg or https://... */
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--IMAGE_URL) center/cover no-repeat;
+      filter: brightness(.6);
+      z-index: -1;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem .9rem;
+      font-weight: 700;
+      font-size: .9rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,.2);
+      color: #fff;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,.35);
+    }
+    .content {
+      padding: clamp(18px, 5vw, 36px);
+      display: grid;
+      gap: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 44px);
+      line-height: 1.05;
+      letter-spacing: -.02em;
+    }
+    p {
+      margin: 0;
+      font-size: clamp(16px, 2.6vw, 18px);
+      color: #444;
+    }
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .9rem 1.2rem;
+      border-radius: 14px;
+      border: 0;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease;
+      width: fit-content;
+    }
+    .cta:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .footer {
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+      padding: 10px 18px 24px;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      font-weight: 900;
+      letter-spacing: .3px;
+      color: #fff;
+      text-shadow: 0 2px 20px rgba(0,0,0,.35);
+    }
+    .heart {
+      width: 18px; height: 18px; display: inline-block;
+      background: currentColor;
+      clip-path: path("M12 21s-8-4.438-8-10a4.5 4.5 0 0 1 8-2 4.5 4.5 0 0 1 8 2c0 5.562-8 10-8 10Z");
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-label="RomBuzz Coming Soon">
+    <section class="hero">
+      <div class="badge" aria-label="RomBuzz coming soon">
+        <span class="heart" aria-hidden="true"></span>
+        RomBuzz
+      </div>
+    </section>
+    <section class="content">
+      <h1>Coming Soon</h1>
+      <p>We’re putting the final touches on RomBuzz — a fresh way to meet in the middle, spark real conversations, and plan better dates.</p>
+      <a class="cta" href="mailto:hello@rombuzz.com?subject=Keep%20me%20posted">
+        Get launch updates
+        <span aria-hidden="true">→</span>
+      </a>
+    </section>
+    <div class="footer">© <span id="y"></span> RomBuzz. All rights reserved.</div>
+  </main>
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
