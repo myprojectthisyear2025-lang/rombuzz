@@ -255,9 +255,11 @@ app.use(
       "https://rombuzz.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
+
 
 
 // Basic middleware setup
