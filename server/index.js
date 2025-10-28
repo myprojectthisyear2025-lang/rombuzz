@@ -939,6 +939,31 @@ function authMiddleware(req, res, next) {
 }
 
 // =======================
+// 📸 UPLOAD AVATAR (with Cloudinary)
+// =======================
+app.post("/api/upload-avatar", authMiddleware, upload.single("avatar"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "rombuzz/avatars",
+      resource_type: "image",
+      transformation: [
+        { width: 400, height: 400, crop: "fill", gravity: "face", radius: "max" },
+      ],
+    });
+
+    fs.unlink(req.file.path, () => {}); // cleanup local tmp file
+
+    res.json({ url: result.secure_url, public_id: result.public_id });
+  } catch (err) {
+    console.error("❌ Avatar upload failed:", err);
+    res.status(500).json({ error: "Avatar upload failed" });
+  }
+});
+
+
+// =======================
 // EMAIL CHANGE (2-step)
 // =======================
 
