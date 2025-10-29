@@ -1,7 +1,10 @@
 // frontend/src/pages/DeleteAccount.jsx
 import React, { useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:4000/api";
+
+//const API_BASE = "http://localhost:4000/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+
 const token = () =>
   localStorage.getItem("token") ||
   sessionStorage.getItem("token") ||

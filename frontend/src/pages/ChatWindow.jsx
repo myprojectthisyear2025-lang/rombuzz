@@ -21,7 +21,8 @@ import AiWingmanChat from "../components/AiWingmanChat";
 import MeetMap from "../components/MeetMap";
 import { FaMapMarkerAlt } from "react-icons/fa";
 
-const API_BASE = "http://localhost:4000";
+//const API_BASE = "http://localhost:4000";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 // STUN for NAT traversal (add TURN in prod)
 const ICE_CONFIG = {

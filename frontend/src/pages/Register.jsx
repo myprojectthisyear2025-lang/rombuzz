@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.png";
 import { useLocation } from "react-router-dom";
 
-const API_BASE = "http://localhost:4000/api";
+//const API_BASE = "http://localhost:4000/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 // Cloudinary (unsigned) — your confirmed values
 const CLOUD_NAME = "drcxu0mks";

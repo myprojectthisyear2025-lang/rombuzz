@@ -18,7 +18,8 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const API_BASE = "http://localhost:4000";
+//const API_BASE = "http://localhost:4000";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 function FlyTo({ center }) {
   const map = useMap();

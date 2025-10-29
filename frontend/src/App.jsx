@@ -40,9 +40,15 @@ import Help from "./pages/settings/Help";
 import DeleteAccount from "./pages/settings/DeleteAccount";
 import Signup from "./pages/Signup"; // ⬅️ Add this import near the top
 
-const API_BASE = "https://rombuzz-api.onrender.com/api";
+/*const API_BASE = "https://rombuzz-api.onrender.com/api";
 
 const GOOGLE_CLIENT_ID =
+  "579443399527-3q3lpblalkiqces1d0etdgjfj301b75l.apps.googleusercontent.com";
+*/
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+
+const GOOGLE_CLIENT_ID =
+  process.env.REACT_APP_GOOGLE_CLIENT_ID ||
   "579443399527-3q3lpblalkiqces1d0etdgjfj301b75l.apps.googleusercontent.com";
 
 // ✅ ProtectedRoute

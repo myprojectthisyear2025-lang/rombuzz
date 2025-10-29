@@ -4,7 +4,9 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
 import { getSocket } from "../socket";
 
-const API_BASE = "http://localhost:4000";
+//const API_BASE = "http://localhost:4000";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+
 const UNREAD_MAP_KEY = "RBZ:unread:map";
 const UNREAD_TOTAL_KEY = "RBZ:unread:total";
 
@@ -468,17 +470,17 @@ useEffect(() => {
       {/* Main chat area */}
       <main className="flex-1 min-w-0 h-full flex flex-col">
       {activeMatch ? (
-  <ChatWindowLazy
-    socket={socketRef.current || getSocket()}
-    me={user}
-    peer={activeMatch}
-    onClose={() => setActiveMatch(null)}
-  />
-) : (
-  <div className="h-full grid place-items-center text-gray-500 text-sm md:text-base">
-    Select a match to start chatting
-  </div>
-)}
+          <ChatWindowLazy
+            socket={socketRef.current || getSocket()}
+            me={user}
+            peer={activeMatch}
+            onClose={() => setActiveMatch(null)}
+          />
+        ) : (
+          <div className="h-full grid place-items-center text-gray-500 text-sm md:text-base">
+            Select a match to start chatting
+          </div>
+        )}
 
       </main>
 

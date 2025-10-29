@@ -18,8 +18,7 @@ import PostFilters from "../components/PostFilters";
 import StoriesBar from "../components/StoriesBar";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE || "https://rombuzz-api.onrender.com/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 // Simple unique-by-id helper
 const uniqById = (arr) => {

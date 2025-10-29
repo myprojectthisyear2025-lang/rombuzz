@@ -25,8 +25,8 @@ import BuzzStreak from "../components/BuzzStreak";
  */
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE || "https://rombuzz-api.onrender.com/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+
 
 // Cloudinary (unsigned) — 
 const CLOUD_NAME ="drcxu0mks";

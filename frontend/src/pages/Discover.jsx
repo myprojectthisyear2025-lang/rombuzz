@@ -21,9 +21,13 @@ import {
   FaChevronDown,
   FaStar,
 } from "react-icons/fa";
-
+/*
 const API_BASE = "http://localhost:4000/api";
 const SOCKET_URL = "http://localhost:4000";
+const PLACEHOLDER = "https://via.placeholder.com/600x800?text=RomBuzz";
+*/
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "https://rombuzz-api.onrender.com";
 const PLACEHOLDER = "https://via.placeholder.com/600x800?text=RomBuzz";
 
 /* ============================================================

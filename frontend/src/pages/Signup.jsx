@@ -5,11 +5,9 @@ import axios from "axios";
 import { GoogleLogin } from "@react-oauth/google";
 
 //const API_BASE = "http://localhost:4000/api";
-const API_BASE =
-  import.meta?.env?.VITE_API_BASE || "https://rombuzz-api.onrender.com/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 const CLIENT_ID =
-  import.meta?.env?.VITE_GOOGLE_CLIENT_ID ||
-  "579443399527-3q3lpblalkiqces1d0etdgjfj301b75l.apps.googleusercontent.com";
+  process.env.REACT_APP_GOOGLE_CLIENT_ID || "579443399527-3q3lpblalkiqces1d0etdgjfj301b75l.apps.googleusercontent.com";
 export default function Signup({ setUser }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
