@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API_BASE = "http://localhost:4000/api";
+//const API_BASE = "http://localhost:4000/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
 
 export default function BuzzStreak() {
   const [streak, setStreak] = useState({ count: 0 });
