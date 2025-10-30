@@ -147,9 +147,10 @@ export default function Chat() {
     if (!user) return;
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
-    fetch(`${API_BASE}/api/social/matches`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+   fetch(`${API_BASE}/matches`, {
+  headers: { Authorization: `Bearer ${token}` },
+})
+
       .then((r) => r.json())
       .then((data) => {
         // server returns an array; also support { matches: [...] }
