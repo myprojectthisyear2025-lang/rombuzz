@@ -1405,7 +1405,7 @@ app.post('/api/auth/google', async (req, res) => {
       await db.write();
     }
 
-    const jwtToken = signToken(user);
+ const jwtToken = generateToken(user.id);
 res.json({ token: jwtToken, user: baseSanitizeUser(user) });
 
   } catch (err) {
@@ -1420,6 +1420,16 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json({ user: baseSanitizeUser(user) });
 });
+// =====================================================
+// 🛡️ JWT Token Helper
+// =====================================================
+const jwt = require("jsonwebtoken");
+function generateToken(userId) {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET || "rombuzz_secret", {
+    expiresIn: "7d",
+  });
+}
+
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
   await db.read();
@@ -5734,7 +5744,15 @@ io.on("connection", (socket) => {
 
   console.log("✅ Registered user:", userId, "→ socket:", socket.id, "(joined room)");
 });
-
+// 🧩 Legacy fallback for older clients
+socket.on("register", (userId) => {
+  if (userId) {
+    onlineUsers[userId] = socket.id;
+    socket.userId = userId;
+    socket.join(String(userId));
+    console.log("✅ Legacy register captured:", userId);
+  }
+});
 
   // --- Handle disconnect ---
   socket.on("disconnect", () => {
