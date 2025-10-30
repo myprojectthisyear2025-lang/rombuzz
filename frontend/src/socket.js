@@ -2,8 +2,7 @@
 import { io } from "socket.io-client";
 
 //const SOCKET_URL = "http://localhost:4000";
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "https://rombuzz-api.onrender.com";
-
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL?.trim() || "https://rombuzz-api.onrender.com";
 // Single socket instance (reused everywhere)
 let socket = null;
 
@@ -38,11 +37,14 @@ export function ensureSocketAuth() {
     socket = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket"],
+       withCredentials: true,
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 9999,
       reconnectionDelay: 1000,
     });
+    console.log("🛰️ SOCKET connecting to:", SOCKET_URL);
+
 
     // Optional (your server supports both auth + register)
    // ✅ Identify user on connect (for Meet-in-Middle + chat)

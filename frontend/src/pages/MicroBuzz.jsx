@@ -3,9 +3,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 
-const socket = io("http://localhost:4000");
+//const socket = io("http://localhost:4000");
 //const API_BASE = "http://localhost:4000/api";
 const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+const socket = io(process.env.REACT_APP_SOCKET_URL || "https://rombuzz-api.onrender.com");
 
 export default function MicroBuzz({ user }) {
   const navigate = useNavigate();
@@ -85,15 +86,16 @@ export default function MicroBuzz({ user }) {
     }
 
     // Wait until connected before registering
-    if (socket.connected) {
-      socket.emit("register", currentUser.id);
-      console.log("🟣 Socket already connected → registered", currentUser.id);
-    } else {
-      socket.on("connect", () => {
-        socket.emit("register", currentUser.id);
-        console.log("🟣 Socket connected & registered:", currentUser.id);
-      });
-    }
+   if (socket.connected) {
+  socket.emit("user:register", currentUser.id);
+  console.log("🟣 Socket already connected → user:register", currentUser.id);
+} else {
+  socket.on("connect", () => {
+    socket.emit("user:register", currentUser.id);
+    console.log("🟣 Socket connected & user:register:", currentUser.id);
+  });
+}
+
 
     return () => {
       socket.off("connect");
@@ -761,8 +763,10 @@ body: JSON.stringify({ toId: buzzRequest.fromId, confirm: true }),
    Radar component (superstar edition)
 =============================== */
 function Radar({ you, users, orbits, nowMs, onBuzz }) {
-  const size = 480;
-  const center = size / 2;
+// ✅ responsive radar size: 90vw max 480px
+const size = Math.min(480, window.innerWidth * 0.9);
+const center = size / 2;
+
   const ringCount = 4;
   const maxRadius = size / 2 - 20;
 
@@ -779,7 +783,9 @@ function Radar({ you, users, orbits, nowMs, onBuzz }) {
   });
 
   return (
-    <div className="relative mx-auto" style={{ width: size, height: size }}>
+  <div className="w-full flex justify-center overflow-hidden">
+<div className="relative mx-auto radar-container" style={{ width: size, height: size }}>
+
       {/* Outer glow container */}
       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/30 to-pink-500/30 blur-xl animate-pulse"></div>
       
@@ -797,7 +803,9 @@ function Radar({ you, users, orbits, nowMs, onBuzz }) {
               rgba(236, 72, 153, 0.35) 100%
             )
           `,
+          
         }}
+        
       >
         {/* Grid rings with glow */}
         {[...Array(ringCount)].map((_, i) => {
@@ -926,9 +934,14 @@ function Radar({ you, users, orbits, nowMs, onBuzz }) {
           }}
         ></div>
       </div>
-
+            
       {/* Enhanced Styles */}
       <style>{`
+                  @media (max-width: 640px) {
+              .radar-container {
+                transform: scale(0.9);
+              }
+            }
         @keyframes radar-sweep {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
@@ -940,5 +953,10 @@ function Radar({ you, users, orbits, nowMs, onBuzz }) {
         }
       `}</style>
     </div>
-  );
+    
+      
+  
+    </div>
+    );
+ 
 }
