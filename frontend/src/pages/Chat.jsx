@@ -362,7 +362,6 @@ useEffect(() => {
     }
   };
 
-  if (!user) return null;
 
   const densityPad =
     gset.density === "compact" ? "p-2" : gset.density === "comfy" ? "p-4" : "p-3";
