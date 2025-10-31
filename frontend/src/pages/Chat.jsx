@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
 import { getSocket } from "../socket";
+import { motion, AnimatePresence } from "framer-motion";
 
 //const API_BASE = "http://localhost:4000";
 const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
@@ -369,74 +370,177 @@ useEffect(() => {
     ? "bg-white"
     : "bg-gradient-to-br from-rose-50 to-rose-100";
 
-   return (
- <div
-  className={`flex flex-col md:flex-row fixed top-16 left-0 w-full h-[calc(100vh-64px)] overflow-hidden ${rootBg}`}
-  style={{
-    fontSize: `${Number(gset.fontScale) || 100}%`,
-    margin: 0,
-    padding: 0,
-    overflow: "hidden",
-  }}
->
+     // detect viewport for mobile vs desktop
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
+  return (
+    <div
+      className={`fixed top-16 left-0 w-full h-[calc(100vh-64px)] overflow-hidden ${rootBg}`}
+      style={{
+        fontSize: `${Number(gset.fontScale) || 100}%`,
+        margin: 0,
+        padding: 0,
+      }}
+    >
+      {/* ==============================
+          📱 MOBILE LAYOUT
+      ============================== */}
+      {isMobile ? (
+        <>
+          <AnimatePresence initial={false} mode="wait">
+  {!activeMatch ? (
+    <motion.div
+      key="list"
+      initial={{ x: 0, opacity: 1 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: "-100%", opacity: 0 }}
+      transition={{ duration: 0.35, ease: "easeInOut" }}
+      className="flex flex-col h-full bg-white"
+    >
+      <div className={`border-b flex items-center gap-2 ${densityPad}`}>
+        <button
+          className="p-2 rounded-lg hover:bg-rose-50"
+          onClick={() => setShowHamburger(true)}
+          title="Chat settings"
+        >
+          ☰
+        </button>
 
+        <FaSearch className="text-gray-500 shrink-0" />
+        <input
+          className="flex-1 outline-none text-sm"
+          placeholder="Search matches"
+          onChange={(e) => onSearch(e.target.value)}
+        />
+      </div>
 
-      {/* Sidebar (desktop) */}
-      <aside className="hidden md:flex w-80 min-w-72 max-w-80 border-r bg-white/90 backdrop-blur-md flex-col">
-        <div className={`border-b flex items-center gap-2 ${densityPad}`}>
-          <button
-            className="p-2 rounded-lg hover:bg-rose-50"
-            onClick={() => setShowHamburger(true)}
-            title="Chat settings"
-          >
-            ☰
-          </button>
+      <div className="flex-1 overflow-y-auto">
+        {filtered.map((m) => {
+          const id = m.id || m._id;
+          const name =
+            [m.firstName, m.lastName].filter(Boolean).join(" ") || "Unknown";
+          const online = !!onlineMap[id];
+          const count = unread[id] || 0;
 
-          <FaSearch className="text-gray-500 shrink-0" />
-          <input
-            className="flex-1 outline-none text-sm"
-            placeholder="Search matches"
-            onChange={(e) => onSearch(e.target.value)}
-          />
-        </div>
+          return (
+            <div
+              key={id}
+              onClick={() => setActiveMatch(m)}
+              className="flex items-center gap-3 p-3 border-b hover:bg-rose-50 cursor-pointer"
+            >
+              <img
+                src={m.avatar || "https://i.pravatar.cc/80"}
+                alt=""
+                className="h-10 w-10 rounded-full object-cover border"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold truncate">{name}</div>
+                <div className="text-xs text-gray-500 flex items-center gap-1">
+                  <span
+                    className={`text-lg ${
+                      online ? "text-green-500" : "text-gray-300"
+                    }`}
+                  >
+                    ●
+                  </span>
+                  {online ? "Active now" : "Offline"}
+                </div>
+              </div>
+              {count > 0 && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white shrink-0">
+                  {count > 99 ? "99+" : count}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  ) : (
+    <motion.div
+      key="chat"
+      initial={{ x: "100%", opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: "100%", opacity: 0 }}
+      transition={{ duration: 0.20, ease: "easeInOut" }}
+      className="h-full"
+    >
+      <ChatWindowLazy
+        socket={socketRef.current || getSocket()}
+        me={user}
+        peer={activeMatch}
+        onClose={() => setActiveMatch(null)}
+      />
+    </motion.div>
+  )}
+</AnimatePresence>
 
-        <div className="overflow-y-auto min-h-0">
-          {filtered.map((m) => {
-            const id = m.id || m._id;
-            const name =
-              [m.firstName, m.lastName].filter(Boolean).join(" ") || "Unknown";
-            const online = !!onlineMap[id];
-            const isActive =
-              activeMatch && (activeMatch.id || activeMatch._id) === id;
-            const count = unread[id] || 0;
-
-            return (
-              <div
-                key={id}
-                className={`w-full flex items-center gap-3 p-3 hover:bg-rose-50 text-left cursor-pointer ${
-                  isActive ? "bg-rose-50" : ""
-                }`}
+        </>
+      ) : (
+        /* ==============================
+           💻 DESKTOP SPLIT VIEW
+        ============================== */
+        <div className="flex h-full">
+          {/* Sidebar (left) */}
+          <aside className="w-80 min-w-72 max-w-80 border-r bg-white/90 backdrop-blur-md flex flex-col">
+            <div className={`border-b flex items-center gap-2 ${densityPad}`}>
+              <button
+                className="p-2 rounded-lg hover:bg-rose-50"
+                onClick={() => setShowHamburger(true)}
+                title="Chat settings"
               >
-                <img
-                  src={m.avatar || "https://i.pravatar.cc/80"}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover border cursor-pointer hover:scale-105 transition"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openProfile(m);
-                  }}
-                />
-                <div
-                  className="flex-1 min-w-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openProfile(m);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold truncate hover:underline flex-1">
-                      {name}
+                ☰
+              </button>
+
+              <FaSearch className="text-gray-500 shrink-0" />
+              <input
+                className="flex-1 outline-none text-sm"
+                placeholder="Search matches"
+                onChange={(e) => onSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="overflow-y-auto min-h-0">
+              {filtered.map((m) => {
+                const id = m.id || m._id;
+                const name =
+                  [m.firstName, m.lastName].filter(Boolean).join(" ") ||
+                  "Unknown";
+                const online = !!onlineMap[id];
+                const isActive =
+                  activeMatch && (activeMatch.id || activeMatch._id) === id;
+                const count = unread[id] || 0;
+
+                return (
+                  <div
+                    key={id}
+                    onClick={() => setActiveMatch(m)}
+                    className={`flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer ${
+                      isActive ? "bg-rose-50" : ""
+                    }`}
+                  >
+                    <img
+                      src={m.avatar || "https://i.pravatar.cc/80"}
+                      alt=""
+                      className="h-10 w-10 rounded-full object-cover border"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate">{name}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <span
+                          className={`text-lg ${
+                            online ? "text-green-500" : "text-gray-300"
+                          }`}
+                        >
+                          ●
+                        </span>
+                        {online ? "Active now" : "Offline"}
+                      </div>
                     </div>
                     {count > 0 && (
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white shrink-0">
@@ -444,46 +548,28 @@ useEffect(() => {
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <span
-                      className={`text-lg ${
-                        online ? "text-green-500" : "text-gray-300"
-                      }`}
-                    >
-                      ●
-                    </span>
-                    {online ? "Active now" : "Offline"}
-                  </div>
-                </div>
+                );
+              })}
+            </div>
+          </aside>
 
-                <button
-                  onClick={() => setActiveMatch(m)}
-                  className="ml-auto text-sm bg-rose-500 text-white rounded-full px-3 py-1 hover:bg-rose-600 transition"
-                >
-                  Chat
-                </button>
+          {/* Chat window (right) */}
+          <main className="flex-1 min-w-0 h-full flex flex-col">
+            {activeMatch ? (
+              <ChatWindowLazy
+                socket={socketRef.current || getSocket()}
+                me={user}
+                peer={activeMatch}
+                onClose={() => setActiveMatch(null)}
+              />
+            ) : (
+              <div className="h-full grid place-items-center text-gray-500 text-sm md:text-base">
+                Select a match to start chatting
               </div>
-            );
-          })}
+            )}
+          </main>
         </div>
-      </aside>
-
-      {/* Main chat area */}
-      <main className="flex-1 min-w-0 h-full flex flex-col">
-      {activeMatch ? (
-          <ChatWindowLazy
-            socket={socketRef.current || getSocket()}
-            me={user}
-            peer={activeMatch}
-            onClose={() => setActiveMatch(null)}
-          />
-        ) : (
-          <div className="h-full grid place-items-center text-gray-500 text-sm md:text-base">
-            Select a match to start chatting
-          </div>
-        )}
-
-      </main>
+      )}
 
       {/* Drawer */}
       {showHamburger && (

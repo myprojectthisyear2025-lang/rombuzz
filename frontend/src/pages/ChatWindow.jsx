@@ -20,6 +20,8 @@ import { useNavigate } from "react-router-dom";
 import AiWingmanChat from "../components/AiWingmanChat";
 import MeetMap from "../components/MeetMap";
 import { FaMapMarkerAlt } from "react-icons/fa";
+import SnapCameraSheet from "../components/SnapCameraSheet";
+import { FullscreenViewer } from "../components/FullscreenViewer";
 
 //const API_BASE = "http://localhost:4000";
 const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
@@ -109,6 +111,7 @@ export default function ChatWindow({ socket, me, peer, onClose }) {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [peerOnline, setPeerOnline] = useState(false);
+  const [viewer, setViewer] = useState({ open: false, message: null });
 
   // composer/ui
   const [showEmoji, setShowEmoji] = useState(false);
@@ -169,9 +172,97 @@ const [selectedIds, setSelectedIds] = useState({});
 // 👇 new
 const [reactFor, setReactFor] = useState(null);       // message to react to
 
-  // attachments/camera (reuse your Cloudinary unsigned flow)
+   // attachments/camera (reuse your Cloudinary unsigned flow)
   const CLOUD_NAME = "drcxu0mks";
   const UPLOAD_PRESET = "rombuzz_unsigned";
+
+  // 📷 Camera modal state
+  const [showCamera, setShowCamera] = useState(false);
+  const [camMode, setCamMode] = useState("photo"); // "photo" | "video"
+  const [viewOnce, setViewOnce] = useState(true);  // send as view-once by default
+
+  // MediaRecorder bits
+  const camStreamRef = useRef(null);
+  const camVideoRef  = useRef(null);
+  const recRef       = useRef(null);
+  const recChunksRef = useRef([]);
+
+  // Clean up camera on close
+  const closeCamera = () => {
+    try { recRef.current && recRef.current.stop(); } catch {}
+    try { camStreamRef.current?.getTracks()?.forEach(t => t.stop()); } catch {}
+    camStreamRef.current = null;
+    recRef.current = null;
+    recChunksRef.current = [];
+    setShowCamera(false);
+  };
+
+  const startCamera = async () => {
+    try {
+      // prefer front camera on phones
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: usingFront ? "user" : "environment" },
+        audio: camMode === "video" ? true : false,
+      });
+      camStreamRef.current = stream;
+      if (camVideoRef.current) {
+        camVideoRef.current.srcObject = stream;
+        camVideoRef.current.play?.().catch(()=>{});
+      }
+    } catch (e) {
+      console.error("camera open failed", e);
+      alert("Could not open camera.");
+      closeCamera();
+    }
+  };
+
+  const takePhotoBlob = async () => {
+    const video = camVideoRef.current;
+    if (!video) return null;
+    // draw current frame to canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 1280;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.9));
+  };
+
+  const startRecording = () => {
+    if (!camStreamRef.current) return;
+    recChunksRef.current = [];
+    const rec = new MediaRecorder(camStreamRef.current, { mimeType: "video/webm;codecs=vp9" });
+    rec.ondataavailable = (e) => { if (e.data?.size) recChunksRef.current.push(e.data); };
+    rec.onstop = async () => {
+      // nothing here; we’ll assemble in stopRecording
+    };
+    recRef.current = rec;
+    rec.start();
+  };
+
+  const stopRecordingBlob = async () => {
+    return new Promise((resolve) => {
+      if (!recRef.current) return resolve(null);
+      recRef.current.onstop = () => {
+        const blob = new Blob(recChunksRef.current, { type: "video/webm" });
+        resolve(blob);
+      };
+      try { recRef.current.stop(); } catch { resolve(null); }
+    });
+  };
+
+  const uploadToCloudinary = async (fileOrBlob) => {
+    const form = new FormData();
+    form.append("file", fileOrBlob);
+    form.append("upload_preset", UPLOAD_PRESET);
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+      method: "POST",
+      body: form,
+    });
+    const j = await r.json();
+    if (!j.secure_url) throw new Error("Cloudinary upload failed");
+    return j.secure_url;
+  };
 
   // reply + selection
   const [replyTo, setReplyTo] = useState(null); // {id, preview, type}
@@ -342,6 +433,11 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
     );
   };
   socket.on("message:delivered", onDelivered);
+  // ✅ Remove messages in real time when deleted (ephemeral "view once")
+  const onRemoved = ({ id }) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  };
+  socket.on("message:removed", onRemoved);
 
   return () => {
     socket.off("message", onMsg);
@@ -354,6 +450,7 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
     socket.off("presence:online", onOnline);
     socket.off("presence:offline", onOffline);
     socket.off("message:delivered", onDelivered);
+    socket.off("message:removed", onRemoved);
     socket.emit("leaveRoom", roomId);
   };
 }, [socket, roomId, peerId, onlineAlert, peer, mute]);
@@ -363,21 +460,48 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+ // ✅ Auto-mark “view once” messages as seen & delete from UI
+useEffect(() => {
+  messages.forEach((raw) => {
+    const m = maybeDecode(raw);
+    const mineMsg = mine(m);
+
+    // regular seen logic
+    if (!mineMsg && !m.deleted && !seenMap[m.id]) {
+      markSeen(m.id);
+      setSeenMap((prev) => ({ ...prev, [m.id]: true }));
+    }
+
+    // extra: ephemeral view-once logic
+    if (!mineMsg && m.ephemeral?.mode === "once" && !hiddenIds[m.id]) {
+      if (!mineMsg && m.ephemeral?.mode === "once") {
+  // 🔔 optional toast
+  if (window.Toastify) {
+    Toastify({
+      text: "View-once message opened ⚡",
+      duration: 2500,
+      gravity: "bottom",
+      position: "center",
+      style: { background: "#f87171" },
+    }).showToast();
+  }
+}
+
+      // remove from UI after small delay (simulate Snapchat close)
+      setTimeout(() => {
+        setHiddenIds((prev) => ({ ...prev, [m.id]: true }));
+      }, 3000);
+    }
+  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [messages]);
+
+
+
   // ============= helpers =============
   const mine = (m) => (m.from || m.fromId) === myId;
 
-  const uploadToCloudinary = async (fileOrBlob) => {
-    const form = new FormData();
-    form.append("file", fileOrBlob);
-    form.append("upload_preset", UPLOAD_PRESET);
-    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
-      method: "POST",
-      body: form,
-    });
-    const j = await r.json();
-    if (!j.secure_url) throw new Error("Cloudinary upload failed");
-    return j.secure_url;
-  };
+ 
 
   const notifyOnline = async (who) => {
   // 🔇 Respect per-room mute
@@ -1215,33 +1339,11 @@ onClose?.();
   .filter((m) => !hiddenIds[m.id])
   .map((raw) => {
     const m = maybeDecode(raw);
-    // ...
+    const isMine = mine(m);
 
 
-            const isMine = mine(m);
-
-            // mark seen for peer's messages as they render
-// mark seen for peer's messages once
-if (!isMine && !m.deleted && !seenMap[m.id]) {
-  markSeen(m.id);
-  setSeenMap(prev => ({ ...prev, [m.id]: true }));
-}
-{selectMode && (
-  <input
-    type="checkbox"
-    className="mt-2 mx-2"
-    checked={!!selectedIds[m.id]}
-    onChange={(e) => {
-      const on = e.target.checked;
-      setSelectedIds(prev => {
-        const next = { ...prev };
-        if (on) next[m.id] = true; else delete next[m.id];
-        return next;
-      });
-    }}
-  />
-)}
-
+// ✨ Detect ephemeral (view-once) mode for styling
+const isEphemeralOnce = m.ephemeral?.mode === "once";
 
             const bubbleBase = "max-w-[80%] md:max-w-[70%] px-3 py-2 rounded-2xl animate-chatfade break-words whitespace-pre-wrap [overflow-wrap:anywhere] inline-block";
             const skin = isMine ? "bg-rose-500 text-white ml-auto" : "bg-white border border-gray-200 text-gray-800";
@@ -1308,6 +1410,13 @@ if (!isMine && !m.deleted && !seenMap[m.id]) {
 
                     {/* body (text/image/video) */}
                    {/* body (text/image/video) */}
+   
+  {isEphemeralOnce && (
+    <div className="absolute -top-2 -right-2 text-xs bg-yellow-300 text-yellow-900 rounded-full px-1.5 py-0.5 shadow">
+      ⚡
+    </div>
+  )}
+
 {m.type === "image" && m.url ? (
   <img
     src={m.url}
@@ -1402,6 +1511,19 @@ if (!isMine && !m.deleted && !seenMap[m.id]) {
           <FaPaperclip />
           <input type="file" accept="image/*,video/*" onChange={onPickFile} className="hidden" />
         </label>
+
+        {/* Camera */}
+        <button
+          className="p-2 rounded-lg hover:bg-gray-100"
+          onClick={() => {
+            setCamMode("photo");
+            setShowCamera(true);
+            setTimeout(startCamera, 50);
+          }}
+          title="Camera"
+        >
+          📷
+        </button>
 
         {/* Input */}
         <input
@@ -1692,6 +1814,30 @@ if (!isMine && !m.deleted && !seenMap[m.id]) {
     )}
   </div>
 )}
+
+    {/* SnapCameraSheet replacement */}
+{showCamera && (
+  <SnapCameraSheet
+    open={showCamera}
+    onClose={() => setShowCamera(false)}
+    onSend={async (payload) => {
+      // payload = { type: "image" | "video", url, ephemeral, filter }
+      await sendSerialized(payload);
+    }}
+    cloudName="drcxu0mks"
+    uploadPreset="rombuzz_unsigned"
+    defaultViewOnce={true}
+  />
+)}
+<FullscreenViewer
+  open={viewer.open}
+  message={viewer.message}
+  onViewed={(id) => {
+    if (id) markSeen(id);
+  }}
+  onClose={() => setViewer({ open: false, message: null })}
+/>
+
 
       {showGallery && (
   <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowGallery(false)}>

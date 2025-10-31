@@ -14,7 +14,7 @@
     "browserify-zlib": "^0.2.0",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.14.0",
-    "framer-motion": "^12.23.22",
+    "framer-motion": "^12.23.24",
     "jwt-decode": "^4.0.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.545.0",
