@@ -331,6 +331,17 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
   socket.on("message:seen", onSeen);
   socket.on("presence:online", onOnline);
   socket.on("presence:offline", onOffline);
+  // ✅ Delivery confirmation listener
+  const onDelivered = (ack) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === ack.id || m._temp === ack.id
+          ? { ...m, _temp: false }
+          : m
+      )
+    );
+  };
+  socket.on("message:delivered", onDelivered);
 
   return () => {
     socket.off("message", onMsg);
@@ -342,6 +353,7 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
     socket.off("message:seen", onSeen);
     socket.off("presence:online", onOnline);
     socket.off("presence:offline", onOffline);
+    socket.off("message:delivered", onDelivered);
     socket.emit("leaveRoom", roomId);
   };
 }, [socket, roomId, peerId, onlineAlert, peer, mute]);
