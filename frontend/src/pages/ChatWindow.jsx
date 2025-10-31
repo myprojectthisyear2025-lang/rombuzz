@@ -477,7 +477,7 @@ useEffect(() => {
       if (!mineMsg && m.ephemeral?.mode === "once") {
   // 🔔 optional toast
   if (window.Toastify) {
-    Toastify({
+    window.Toastify({
       text: "View-once message opened ⚡",
       duration: 2500,
       gravity: "bottom",
