@@ -3073,11 +3073,10 @@ app.post('/api/messages', authMiddleware, async (req, res) => {
   db.data.messages.push(msg);
   await db.write();
 
-  const socketId = onlineUsers[to];
-  if (socketId) io.to(socketId).emit('message', msg);
-  if (socketId) {
-  io.to(socketId).emit('message', msg);
-  // NEW: per-user ping so Navbar can update even if it didn't join any room
+ // 📨 Notify receiver if online
+const receiverSocket = onlineUsers[to];
+if (receiverSocket) {
+  io.to(receiverSocket).emit('message', msg);
   io.to(String(to)).emit('direct:message', {
     id: msg.id,
     roomId: [String(msg.from), String(msg.to)].sort().join('_'),
@@ -3088,6 +3087,17 @@ app.post('/api/messages', authMiddleware, async (req, res) => {
     type: 'text',
   });
 }
+
+// ✅ Notify sender for delivery confirmation
+const senderSocket = onlineUsers[req.user.id];
+if (senderSocket) {
+  io.to(senderSocket).emit('message:delivered', {
+    id: msg.id,
+    to: msg.to,
+    time: msg.createdAt,
+  });
+}
+
 
   res.json({ message: msg });
 });
