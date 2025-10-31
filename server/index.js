@@ -464,6 +464,29 @@ socket.on("register", (userId) => {
     if (!roomId || !msgId) return;
     socket.to(roomId).emit("message:seen", msgId);
   });
+  // 🧨 Auto-delete view-once messages when seen
+socket.on("message:seen", async ({ roomId, msgId }) => {
+  await db.read();
+  const msg = db.data.messages?.find(m => m.id === msgId);
+  if (msg && msg.ephemeral?.mode === "once") {
+    // Remove from DB and notify peers
+    db.data.messages = db.data.messages.filter(m => m.id !== msgId);
+    await db.write();
+    io.to(roomId).emit("message:removed", { id: msgId });
+  }
+});
+// Auto-remove messages that expired (e.g., 24h snaps)
+setInterval(async () => {
+  await db.read();
+  const now = Date.now();
+  db.data.messages = db.data.messages.filter(m => {
+    if (!m.expireAt) return true;
+    return new Date(m.expireAt).getTime() > now;
+  });
+  await db.write();
+}, 60 * 60 * 1000); // hourly cleanup
+
+
 
   // -------- Plain realtime dispatch (persist if needed) --------
   socket.on("sendMessage", async (msg) => {
@@ -861,7 +884,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
   const match = await bcrypt.compare(password, user.passwordHash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
-  const token = signToken(user);
+const token = signToken({ id: user.id, email: user.email });
 res.json({ token, user: baseSanitizeUser(user) });
 
 });
@@ -912,7 +935,7 @@ app.post('/api/auth/direct-signup', async (req, res) => {
     db.data.users.push(user);
     await db.write();
 
-    const token = signToken(user);
+const token = signToken({ id: user.id, email: user.email });
     res.json({ token, user: baseSanitizeUser(user) });
   } catch (err) {
     console.error('❌ direct-signup error:', err);
@@ -1405,7 +1428,7 @@ app.post('/api/auth/google', async (req, res) => {
       await db.write();
     }
 
- const jwtToken = generateToken(user.id);
+const jwtToken = signToken({ id: user.id, email: user.email });
 res.json({ token: jwtToken, user: baseSanitizeUser(user) });
 
   } catch (err) {
@@ -1420,15 +1443,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json({ user: baseSanitizeUser(user) });
 });
-// =====================================================
-// 🛡️ JWT Token Helper
-// =====================================================
-const jwt = require("jsonwebtoken");
-function generateToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET || "rombuzz_secret", {
-    expiresIn: "7d",
-  });
-}
+
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
@@ -3061,17 +3076,42 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
 ====================== */
 app.post('/api/messages', authMiddleware, async (req, res) => {
   await db.read();
-  const { to, text } = req.body || {};
-  if (!to || !text) return res.status(400).json({ error: 'to and text required' });
+ // 🧩 Accept text or media (photo/video) + ephemeral mode
+const { to, text, type, url, ephemeral } = req.body || {};
+if (!to) return res.status(400).json({ error: "recipient required" });
 
-  if (isBlocked(req.user.id, to)) return res.status(403).json({ error: 'blocked' });
+// validate message content
+if (!text && !url) {
+  return res.status(400).json({ error: "either text or media url required" });
+}
 
-  const exists = db.data.users.find(u => u.id === to);
-  if (!exists) return res.status(400).json({ error: 'recipient not found' });
+// Block check
+if (isBlocked(req.user.id, to))
+  return res.status(403).json({ error: "blocked" });
 
-  const msg = { id: shortid.generate(), from: req.user.id, to, text, createdAt: Date.now() };
-  db.data.messages.push(msg);
-  await db.write();
+// Recipient check
+const exists = db.data.users.find((u) => u.id === to);
+if (!exists) return res.status(400).json({ error: "recipient not found" });
+
+// determine message type
+const msgType = type || (url ? "photo" : "text");
+
+// construct message
+const msg = {
+  id: shortid.generate(),
+  from: req.user.id,
+  to,
+  text: text || "",
+  type: msgType,
+  url: url || null,
+  ephemeral: ephemeral || "keep", // "once" or "keep"
+  createdAt: Date.now(),
+};
+
+// Save message
+db.data.messages.push(msg);
+await db.write();
+
 
  // 📨 Notify receiver if online
 const receiverSocket = onlineUsers[to];
@@ -3110,29 +3150,82 @@ app.get('/api/messages', authMiddleware, async (req, res) => {
 
   if (isBlocked(user1, user2)) return res.status(403).json({ error: 'blocked' });
 
-  const convo = db.data.messages?.filter(
-  (m) =>
-    (m.fromId === me && m.toId === other) ||
-    (m.fromId === other && m.toId === me)
-) || [];
+ // ✅ Build conversation between two users
+const me = user1;
+const other = user2;
 
+// fetch messages where (from===me && to===other) or vice versa
+const convo =
+  db.data.messages?.filter(
+    (m) =>
+      (m.from === me && m.to === other) ||
+      (m.from === other && m.to === me)
+  ) || [];
+
+// if no messages, only allow if users are matched
 if (convo.length === 0) {
-  // create an empty thread if matched
   const matched = db.data.matches?.some(
     (m) =>
-      (m.a === me && m.b === other) ||
-      (m.a === other && m.b === me)
+      (m.a === me && m.b === other) || (m.a === other && m.b === me)
   );
   if (matched) {
-    return res.json({ messages: [] }); // ✅ allow chat to load blank thread
+    return res.json({ messages: [] });
   } else {
     return res.status(403).json({ error: "No match yet" });
   }
 }
 
-res.json({ messages: convo });
-
+// ✅ Include all fields (text, type, url, ephemeral, timestamps)
+res.json({
+  messages: convo.map((m) => ({
+    id: m.id,
+    from: m.from,
+    to: m.to,
+    text: m.text || "",
+    type: m.type || "text",
+    url: m.url || null,
+    ephemeral: m.ephemeral || "keep",
+    createdAt: m.createdAt || Date.now(),
+  })),
 });
+});
+/* ======================
+   AUTO-DELETE VIEW-ONCE MESSAGES
+====================== */
+app.post("/api/messages/viewed", authMiddleware, async (req, res) => {
+  try {
+    const { messageId } = req.body || {};
+    if (!messageId) return res.status(400).json({ error: "messageId required" });
+
+    await db.read();
+
+    const msgIndex = db.data.messages.findIndex((m) => m.id === messageId);
+    if (msgIndex === -1) return res.status(404).json({ error: "Message not found" });
+
+    const msg = db.data.messages[msgIndex];
+
+    // Only delete if ephemeral === "once"
+    if (msg.ephemeral === "once") {
+      db.data.messages.splice(msgIndex, 1);
+      await db.write();
+
+      console.log(`🗑️ View-once message deleted: ${messageId}`);
+
+      // Optional: Notify both users that the message vanished
+      const socketTo = onlineUsers[msg.to];
+      const socketFrom = onlineUsers[msg.from];
+      if (socketTo) io.to(socketTo).emit("message:removed", { id: messageId });
+      if (socketFrom) io.to(socketFrom).emit("message:removed", { id: messageId });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Auto-delete error:", err);
+    res.status(500).json({ error: "server error" });
+  }
+});
+
+
 
 /* ======================
    LIKES & MATCHES
@@ -3842,16 +3935,42 @@ function getPeersFromRoomId(roomId) {
   return { a, b };
 }
 
-// GET all messages in a room (persisted)
+// ============================
+// 💬 GET CHAT ROOM MESSAGES
+// ============================
 app.get("/api/chat/rooms/:roomId", authMiddleware, async (req, res) => {
   const { roomId } = req.params;
-  const doc = await getRoomDoc(roomId);
-  const myId = req.user.id;
-  const filtered = (doc.list || []).filter(
-    (m) => !(m.hiddenFor || []).includes(myId)
-  );
-  res.json(filtered);
+  const userId = req.user.id;
+
+  await db.read();
+  if (!Array.isArray(db.data.messages)) db.data.messages = [];
+
+  const list = db.data.messages.filter((m) => m.roomId === roomId);
+
+  // 🔥 Auto-delete ephemeral messages if viewed once
+  const keep = [];
+  const remove = [];
+  for (const msg of list) {
+    if (msg.ephemeral?.mode === "once") {
+      // if viewer ≠ sender, delete immediately after serving
+      if (msg.from !== userId) {
+        remove.push(msg.id);
+      } else {
+        keep.push(msg); // sender still sees “sent once” note
+      }
+    } else {
+      keep.push(msg);
+    }
+  }
+
+  if (remove.length) {
+    db.data.messages = db.data.messages.filter((m) => !remove.includes(m.id));
+    await db.write();
+  }
+
+  res.json(keep);
 });
+
 
 // POST text or serialized media (::RBZ::...) into a room
 app.post("/api/chat/rooms/:roomId", authMiddleware, async (req, res) => {
