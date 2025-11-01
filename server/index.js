@@ -399,16 +399,23 @@ socket.on("buzz_match_open_profile", (data) => {
 
   // Allow explicit register from client
 // inside io.on("connection")
+// ✅ Support both legacy and new event names
+socket.on("user:register", (userId) => {
+  if (!userId) return;
+  onlineUsers[userId] = socket.id;
+  currentUserId = userId;
+  socket.join(String(userId));
+  io.emit("presence:online", { userId });
+  console.log(`🔌 (user:register) ${userId} → ${socket.id} (joined private room)`);
+});
+
 socket.on("register", (userId) => {
   if (!userId) return;
   onlineUsers[userId] = socket.id;
   currentUserId = userId;
-
-  // ✅ join the user’s private room so we can ping their navbar anywhere
   socket.join(String(userId));
-
   io.emit("presence:online", { userId });
-  console.log(`🔌 Registered user ${userId} → ${socket.id} (joined private room)`);
+  console.log(`🔌 (legacy register) ${userId} → ${socket.id}`);
 });
 
 
@@ -1436,9 +1443,11 @@ app.post("/api/notifications/block/:userId", authMiddleware, async (req, res) =>
   res.json({ success: true });
 });
 
+
 /* ======================
    GOOGLE LOGIN
 ====================== */
+/*
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Google token required' });
@@ -1505,7 +1514,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json({ user: baseSanitizeUser(user) });
 });
-
+*/
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
@@ -1562,8 +1571,9 @@ app.post("/api/auth/register-full", async (req, res) => {
   db.data.users.push(user);
   await db.write();
 
-  const token = generateToken(user.id);
-  res.json({ token, user: baseSanitizeUser(user) });
+  const token = signToken({ id: user.id, email: user.email });
+res.json({ token, user: baseSanitizeUser(user) });
+
 });
 
 // =======================
