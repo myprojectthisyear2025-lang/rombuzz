@@ -256,6 +256,9 @@ app.use(
     credentials: true,
   })
 );
+// ✅ Handle browser preflights for every route:
+app.options("*", cors());
+
 
 
 // Basic middleware setup
