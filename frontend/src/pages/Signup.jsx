@@ -81,24 +81,33 @@ export default function Signup({ setUser }) {
   };
 
   // Google Signup handler
-  const handleGoogleSignup = async (response) => {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await axios.post(`${API_BASE}/auth/google`, {
-        token: response.credential,
-      });
-      const { token, user } = res.data;
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-      if (setUser) setUser(user);
-      navigate("/register");
-    } catch (e) {
-      setError("Google signup failed. Please try again.");
-    } finally {
-      setLoading(false);
+ const handleGoogleSignup = async (response) => {
+  setError("");
+  setLoading(true);
+  try {
+    const res = await axios.post(`${API_BASE}/auth/google`, {
+      token: response.credential,
+    });
+    const { token, user, isNew } = res.data;
+
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    if (setUser) setUser(user);
+
+    // ✅ If new Google account → go to CompleteProfile
+    if (isNew) {
+      navigate("/complete-profile");
+    } else {
+      navigate("/", { replace: true }); // existing user
     }
-  };
+  } catch (e) {
+    console.error("Google signup error:", e);
+    setError("Google signup failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-500 to-red-500 px-4">

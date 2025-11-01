@@ -88,23 +88,31 @@ const handleGoogleSuccess = async (credentialResponse) => {
     const cred = credentialResponse?.credential;
     if (!cred) throw new Error("Missing Google credential");
 
-    const res = await axios.post(`${API_BASE}/auth/google`, {
-      token: cred, // ✅ backend expects 'token'
-    });
+   const res = await axios.post(`${API_BASE}/auth/google`, {
+  token: cred,
+});
 
-    const { token, user } = res.data || {};
-    if (!token || !user) throw new Error("Invalid response from server");
+const { token, user, isNew } = res.data || {};
+if (!token || !user) throw new Error("Invalid response from server");
 
-    if (rememberMe) {
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem("user", JSON.stringify(user));
-    }
+// Store token
+if (rememberMe) {
+  localStorage.setItem("token", token);
+  localStorage.setItem("user", JSON.stringify(user));
+} else {
+  sessionStorage.setItem("token", token);
+  sessionStorage.setItem("user", JSON.stringify(user));
+}
 
-    if (setUser) setUser(user);
-navigate("/", { replace: true });
+if (setUser) setUser(user);
+
+// ✅ If this Gmail is new → go to CompleteProfile
+if (isNew) {
+  navigate("/complete-profile");
+} else {
+  navigate("/", { replace: true });
+}
+
 
   } catch (err) {
     console.error("Google login error:", err);
