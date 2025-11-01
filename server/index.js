@@ -888,6 +888,61 @@ const token = signToken({ id: user.id, email: user.email });
 res.json({ token, user: baseSanitizeUser(user) });
 
 });
+// =======================
+// 🔐 GOOGLE LOGIN / SIGNUP
+// =======================
+app.post("/api/auth/google", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: "Missing Google token" });
+
+    // Verify Google credential
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture, sub } = payload || {};
+    if (!email) return res.status(400).json({ error: "Missing email from Google" });
+
+    await db.read();
+
+    // ✅ Reuse existing user if email already exists
+    let user = db.data.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase() || u.googleId === sub
+    );
+
+    // 🆕 Create new if not found
+    if (!user) {
+      user = {
+        id: shortid.generate(),
+        email: email.toLowerCase(),
+        googleId: sub,
+        firstName: name?.split(" ")[0] || "",
+        lastName: name?.split(" ")[1] || "",
+        avatar: picture || "",
+        bio: "",
+        location: null,
+        media: [],
+        posts: [],
+        interests: [],
+        hobbies: [],
+        createdAt: Date.now(),
+        visibility: "active",
+      };
+      db.data.users.push(user);
+      await db.write();
+    }
+
+    // Generate token
+    const jwtToken = signToken(user);
+    res.json({ token: jwtToken, user: baseSanitizeUser(user) });
+  } catch (err) {
+    console.error("❌ Google login error:", err);
+    res.status(500).json({ error: "Google authentication failed" });
+  }
+});
+
 /* ======================
    DIRECT EMAIL SIGNUP (no code)
 ====================== */
