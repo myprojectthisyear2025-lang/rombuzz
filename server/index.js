@@ -902,6 +902,7 @@ res.json({ token, user: baseSanitizeUser(user) });
 // =======================
 // 🔐 GOOGLE LOGIN / SIGNUP
 // =======================
+/*
 app.post("/api/auth/google", async (req, res) => {
   try {
     const { token } = req.body;
@@ -956,6 +957,7 @@ app.post("/api/auth/google", async (req, res) => {
     res.status(500).json({ error: "Google authentication failed" });
   }
 });
+*/
 
 /* ======================
    DIRECT EMAIL SIGNUP (no code)
@@ -1447,7 +1449,7 @@ app.post("/api/notifications/block/:userId", authMiddleware, async (req, res) =>
 /* ======================
    GOOGLE LOGIN
 ====================== */
-/*
+
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Google token required' });
@@ -1514,7 +1516,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json({ user: baseSanitizeUser(user) });
 });
-*/
+
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
