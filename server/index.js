@@ -913,6 +913,7 @@ app.post("/api/auth/google", async (req, res) => {
     );
 
     // 🆕 Create new if not found
+    let isNew = false;
     if (!user) {
       user = {
         id: shortid.generate(),
@@ -932,11 +933,13 @@ app.post("/api/auth/google", async (req, res) => {
       };
       db.data.users.push(user);
       await db.write();
+        isNew = true; // ✅ flag new users
+
     }
 
     // Generate token
     const jwtToken = signToken(user);
-    res.json({ token: jwtToken, user: baseSanitizeUser(user) });
+    res.json({ token: jwtToken, user: baseSanitizeUser(user), isNew });
   } catch (err) {
     console.error("❌ Google login error:", err);
     res.status(500).json({ error: "Google authentication failed" });
