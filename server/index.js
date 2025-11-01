@@ -902,62 +902,76 @@ res.json({ token, user: baseSanitizeUser(user) });
 // =======================
 // 🔐 GOOGLE LOGIN / SIGNUP
 // =======================
-/*
-app.post("/api/auth/google", async (req, res) => {
-  try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ error: "Missing Google token" });
+app.post('/api/auth/google', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Google token required' });
 
-    // Verify Google credential
+  try {
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
       audience: GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
-    const { email, name, picture, sub } = payload || {};
-    if (!email) return res.status(400).json({ error: "Missing email from Google" });
+    const email = payload.email.toLowerCase();
 
     await db.read();
-
-    // ✅ Reuse existing user if email already exists
-    let user = db.data.users.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase() || u.googleId === sub
-    );
-
-    // 🆕 Create new if not found
+    let user = db.data.users.find(u => u.email === email);
     let isNew = false;
+
+    // ✅ Detect new Google sign-ups
     if (!user) {
+      isNew = true;
       user = {
         id: shortid.generate(),
-        email: email.toLowerCase(),
-        googleId: sub,
-        firstName: name?.split(" ")[0] || "",
-        lastName: name?.split(" ")[1] || "",
-        avatar: picture || "",
-        bio: "",
+        firstName: payload.given_name || '',
+        lastName: payload.family_name || '',
+        email,
+        passwordHash: '',
+        bio: '',
+        avatar: payload.picture || '',
         location: null,
+        visibility: 'active',
         media: [],
         posts: [],
         interests: [],
         hobbies: [],
+        favorites: [],
         createdAt: Date.now(),
-        visibility: "active",
+        visibilityMode: 'auto',
+        fieldVisibility: {
+          age: 'public',
+          height: 'public',
+          city: 'public',
+          orientation: 'public',
+          interests: 'public',
+          hobbies: 'public',
+          likes: 'public',
+          dislikes: 'public',
+          lookingFor: 'public',
+          voiceIntro: 'public',
+          photos: 'matches',
+        },
+        nameChangedAt: 0,
+        pendingEmailChange: null,
       };
       db.data.users.push(user);
       await db.write();
-        isNew = true; // ✅ flag new users
-
     }
 
-    // Generate token
-    const jwtToken = signToken(user);
-    res.json({ token: jwtToken, user: baseSanitizeUser(user), isNew });
+    const jwtToken = signToken({ id: user.id, email: user.email });
+
+    // ✅ Return isNew flag for frontend redirect
+    res.json({
+      token: jwtToken,
+      user: baseSanitizeUser(user),
+      isNew,
+    });
   } catch (err) {
-    console.error("❌ Google login error:", err);
-    res.status(500).json({ error: "Google authentication failed" });
+    console.error('❌ Google login failed:', err);
+    res.status(401).json({ error: 'Google login failed' });
   }
 });
-*/
+
 
 /* ======================
    DIRECT EMAIL SIGNUP (no code)
@@ -1449,7 +1463,7 @@ app.post("/api/notifications/block/:userId", authMiddleware, async (req, res) =>
 /* ======================
    GOOGLE LOGIN
 ====================== */
-
+/*
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'Google token required' });
@@ -1516,7 +1530,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   if (!user) return res.status(404).json({ error: 'not found' });
   res.json({ user: baseSanitizeUser(user) });
 });
-
+*/
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
