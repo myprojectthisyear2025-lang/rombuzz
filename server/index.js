@@ -256,8 +256,9 @@ app.use(
     credentials: true,
   })
 );
-// ✅ Handle browser preflights for every route:
-app.options("*", cors());
+// ✅ Handle all preflight OPTIONS requests safely (Express 5+ compatible)
+app.options(/.*/, cors());
+
 
 
 
