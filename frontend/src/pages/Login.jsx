@@ -79,47 +79,40 @@ navigate("/", { replace: true });
 };
 
 
-  // === Google Login (Token Flow) ===
+// ✅ FIXED Google Login Handler
 const handleGoogleSuccess = async (credentialResponse) => {
+  setError("");
+  setLoading(true);
   try {
     const cred = credentialResponse?.credential;
     if (!cred) throw new Error("Missing Google credential");
 
-   const res = await axios.post(`${API_BASE}/auth/google`, {
-  token: cred,
-});
+    const res = await axios.post(`${API_BASE}/auth/google`, { token: cred });
+    const { token, user, isNew, profileComplete } = res.data || {};
+    if (!token || !user) throw new Error("Invalid response from server");
 
-const { token, user, isNew } = res.data || {};
-if (!token || !user) throw new Error("Invalid response from server");
+    // ✅ Always save token + user
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    if (setUser) setUser(user);
 
-const shouldComplete =
-  isNew === true ||
-  isNew === "true" ||
-  user?.profileComplete === false ||
-  !user?.avatar;
-
-// Store token
-// ✅ Always persist login across refresh
-localStorage.setItem("token", token);
-localStorage.setItem("user", JSON.stringify(user));
-
-
-if (setUser) setUser(user);
-
-if (shouldComplete) {
-  navigate("/complete-profile");
-} else {
-  navigate("/", { replace: true });
-}
-
-
-
+    // ✅ Redirect logic
+    const needsProfile = isNew || !profileComplete || !user.avatar;
+    if (needsProfile) {
+      navigate("/completeprofile", { replace: true });
+    } else {
+      navigate("/discover", { replace: true });
+    }
   } catch (err) {
     console.error("Google login error:", err);
-    const msg = err.response?.data?.error || err.message || "Google login failed";
-    alert(msg);
+    setError(
+      err.response?.data?.error || err.message || "Google login failed"
+    );
+  } finally {
+    setLoading(false);
   }
 };
+
 
 
   return (

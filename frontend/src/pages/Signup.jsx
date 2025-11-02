@@ -80,39 +80,42 @@ export default function Signup({ setUser }) {
     }
   };
 
-  // Google Signup handler
- const handleGoogleSignup = async (response) => {
+ // ✅ FIXED Google Signup Handler
+const handleGoogleSignup = async (response) => {
   setError("");
   setLoading(true);
   try {
     const res = await axios.post(`${API_BASE}/auth/google`, {
       token: response.credential,
     });
-    const { token, user, isNew } = res.data;
 
-    const shouldComplete =
-      isNew === true ||
-      isNew === "true" ||
-      user?.profileComplete === false ||
-      !user?.avatar;
+    const { token, user, isNew, profileComplete } = res.data || {};
+    if (!token || !user) throw new Error("Invalid response from server");
 
-    // store token/user either way (CompleteProfile uses it to upload avatar)
+    // ✅ Save token + user
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
     if (setUser) setUser(user);
 
-    if (shouldComplete) {
-      navigate("/complete-profile");
+    // ✅ Determine where to go
+    const needsProfile = isNew || !profileComplete || !user.avatar;
+    if (needsProfile) {
+      navigate("/completeprofile", { replace: true });
     } else {
-      navigate("/", { replace: true });
+      navigate("/discover", { replace: true });
     }
   } catch (e) {
     console.error("Google signup error:", e);
-    setError("Google signup failed. Please try again.");
+    setError(
+      e.response?.data?.error ||
+        e.message ||
+        "Google signup failed. Please try again."
+    );
   } finally {
     setLoading(false);
   }
 };
+
 
 
   return (
