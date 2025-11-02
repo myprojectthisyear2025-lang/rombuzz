@@ -67,14 +67,17 @@ const CompleteProfile = ({ user, setUser }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          hobbies,
-          matchPref,
-          locationRadius,
-          ageRange,
-          avatar: avatarData.filename,
-          photos: photos.map((p) => p.name),
-        }),
+       body: JSON.stringify({
+        hobbies,
+        matchPref,
+        locationRadius,
+        ageRange,
+        avatar: avatarData.filename,
+        photos: photos.map((p) => p.name),
+        profileComplete: true,   // 👈 add this
+        hasOnboarded: true       // 👈 optional
+}),
+
       });
       if (!profileRes.ok) throw new Error("Failed to save profile");
       const updatedUser = await profileRes.json();

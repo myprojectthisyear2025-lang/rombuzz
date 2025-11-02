@@ -24,7 +24,7 @@ import SnapCameraSheet from "../components/SnapCameraSheet";
 import { FullscreenViewer } from "../components/FullscreenViewer";
 
 //const API_BASE = "http://localhost:4000";
-const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com/api";
+const API_BASE = process.env.REACT_APP_API_BASE || "https://rombuzz-api.onrender.com";
 
 // STUN for NAT traversal (add TURN in prod)
 const ICE_CONFIG = {
@@ -327,7 +327,7 @@ const incomingToneRef = useRef(null); // ringtone for the receiver
     let mounted = true;
     (async () => {
       try {
-        const r = await fetch(`${API_BASE}/api/chat/rooms/${roomId}`, {
+        const r = await fetch(`${API_BASE}/chat/rooms/${roomId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!mounted) return;
@@ -543,7 +543,7 @@ useEffect(() => {
     setMessages((prev) => [...prev, temp]);
 
     try {
-      const r = await fetch(`${API_BASE}/api/chat/rooms/${roomId}`, {
+      const r = await fetch(`${API_BASE}/chat/rooms/${roomId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ text: text || payloadObj?.text || "" }),
@@ -1067,7 +1067,7 @@ const matchesQuery = (msg, q) => {
     <main className={`flex flex-col h-full min-h-0 ${themeCls.wrap}`}>
       {/* Header */}
       <div className={`h-[56px] sticky top-0 z-30 flex items-center justify-between px-3 border-b shadow-sm ${themeCls.pane}`}>
-        <div className="flex items-center gap-3 min-w-0">
+<div className="flex flex-wrap items-center gap-2 sm:gap-3 overflow-x-auto">
           <button onClick={onClose} className="md:hidden text-xl">⬅️</button>
           <img
             src={peer.avatar || "https://i.pravatar.cc/80"}
@@ -1290,7 +1290,7 @@ const matchesQuery = (msg, q) => {
     onClick={async () => {
       if (!window.confirm("Delete this conversation for you? This can't be undone.")) return;
       try {
-     const r = await fetch(`${API_BASE}/api/chat/rooms/${roomId}`, {
+     const r = await fetch(`${API_BASE}/chat/rooms/${roomId}`, {
   method: "DELETE",
   headers: { Authorization: `Bearer ${token}` },
 });
@@ -1422,7 +1422,7 @@ const isEphemeralOnce = m.ephemeral?.mode === "once";
     src={m.url}
     alt=""
     className="rounded-lg max-h-72 object-contain cursor-pointer"
-    onClick={() => window.open(m.url, "_blank")}
+onClick={() => setViewer({ open: true, message: m })}
   />
 ) : m.type === "video" && m.url ? (
   <video controls src={m.url} className="rounded-lg max-h-72" />

@@ -90,15 +90,21 @@ export default function Signup({ setUser }) {
     });
     const { token, user, isNew } = res.data;
 
+    const shouldComplete =
+      isNew === true ||
+      isNew === "true" ||
+      user?.profileComplete === false ||
+      !user?.avatar;
+
+    // store token/user either way (CompleteProfile uses it to upload avatar)
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
     if (setUser) setUser(user);
 
-    // ✅ If new Google account → go to CompleteProfile
-    if (isNew) {
+    if (shouldComplete) {
       navigate("/complete-profile");
     } else {
-      navigate("/", { replace: true }); // existing user
+      navigate("/", { replace: true });
     }
   } catch (e) {
     console.error("Google signup error:", e);

@@ -95,6 +95,12 @@ const handleGoogleSuccess = async (credentialResponse) => {
 const { token, user, isNew } = res.data || {};
 if (!token || !user) throw new Error("Invalid response from server");
 
+const shouldComplete =
+  isNew === true ||
+  isNew === "true" ||
+  user?.profileComplete === false ||
+  !user?.avatar;
+
 // Store token
 if (rememberMe) {
   localStorage.setItem("token", token);
@@ -106,12 +112,12 @@ if (rememberMe) {
 
 if (setUser) setUser(user);
 
-// ✅ If this Gmail is new → go to CompleteProfile
-if (isNew) {
+if (shouldComplete) {
   navigate("/complete-profile");
 } else {
   navigate("/", { replace: true });
 }
+
 
 
   } catch (err) {
