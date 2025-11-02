@@ -88,10 +88,11 @@ export default function DeleteAccount() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete");
 
-      alert("Your account has been permanently deleted.");
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = "/";
+     alert("Your account has been permanently deleted.");
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/signup"; // redirect to signup for new account creation
+
     } catch (err) {
       console.error(err);
       alert("Could not delete account.");
