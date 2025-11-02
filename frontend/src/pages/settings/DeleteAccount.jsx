@@ -85,6 +85,8 @@ export default function DeleteAccount() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${t}` },
       });
+      console.log("🔍 DELETE RESPONSE:", res.status, await res.text());
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete");
 

@@ -6,25 +6,20 @@ const SOCKET_URL = process.env.REACT_APP_SOCKET_URL?.trim() || "https://rombuzz-
 // Single socket instance (reused everywhere)
 let socket = null;
 
+// ✅ Always use localStorage for persistent auth
 function getToken() {
-  return (
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("token") ||
-    ""
-  );
+  return localStorage.getItem("token") || "";
 }
 
 function getUser() {
   try {
-    return (
-      JSON.parse(localStorage.getItem("user")) ||
-      JSON.parse(sessionStorage.getItem("user")) ||
-      null
-    );
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
   }
 }
+
 
 /**
  * Ensure one authenticated socket connection for the whole app.
@@ -32,6 +27,10 @@ function getUser() {
  */
 export function ensureSocketAuth() {
   const token = getToken();
+if (!token) {
+  console.warn("⚠️ No auth token found — socket connection skipped");
+  return null;
+}
 
   if (!socket) {
     socket = io(SOCKET_URL, {

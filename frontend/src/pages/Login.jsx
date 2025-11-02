@@ -62,13 +62,10 @@ const [resetMsg, setResetMsg] = useState("");
       return setError("Malformed server response");
     }
 
-    if (rememberMe) {
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-    } else {
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem("user", JSON.stringify(user));
-    }
+  // ✅ Always persist login across refresh
+localStorage.setItem("token", token);
+localStorage.setItem("user", JSON.stringify(user));
+
 
  if (setUser) setUser(user);
 navigate("/", { replace: true });
@@ -102,13 +99,10 @@ const shouldComplete =
   !user?.avatar;
 
 // Store token
-if (rememberMe) {
-  localStorage.setItem("token", token);
-  localStorage.setItem("user", JSON.stringify(user));
-} else {
-  sessionStorage.setItem("token", token);
-  sessionStorage.setItem("user", JSON.stringify(user));
-}
+// ✅ Always persist login across refresh
+localStorage.setItem("token", token);
+localStorage.setItem("user", JSON.stringify(user));
+
 
 if (setUser) setUser(user);
 
