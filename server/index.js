@@ -899,12 +899,14 @@ const token = signToken({ id: user.id, email: user.email });
 res.json({ token, user: baseSanitizeUser(user) });
 
 });
+
+
 // =======================
-// 🔐 GOOGLE LOGIN / SIGNUP
+// 🔐 GOOGLE LOGIN / SIGNUP (fixed for CompleteProfile)
 // =======================
-app.post('/api/auth/google', async (req, res) => {
+app.post("/api/auth/google", async (req, res) => {
   const { token } = req.body;
-  if (!token) return res.status(400).json({ error: 'Google token required' });
+  if (!token) return res.status(400).json({ error: "Google token required" });
 
   try {
     const ticket = await googleClient.verifyIdToken({
@@ -915,48 +917,50 @@ app.post('/api/auth/google', async (req, res) => {
     const email = payload.email.toLowerCase();
 
     await db.read();
-    let user = db.data.users.find(u => u.email === email);
+    let user = db.data.users.find((u) => u.email === email);
     let isNew = false;
 
-    // ✅ Detect new Google sign-ups
+    // ✅ Handle brand-new Google signups
     if (!user) {
       isNew = true;
       user = {
         id: shortid.generate(),
-        firstName: payload.given_name || '',
-        lastName: payload.family_name || '',
         email,
-        passwordHash: '',
-        bio: '',
-        avatar: payload.picture || '',
+        firstName: payload.given_name || "",
+        lastName: payload.family_name || "",
+        avatar: payload.picture || "",
+        passwordHash: "",
+        createdAt: Date.now(),
+
+        // Flags
+        profileComplete: false,
+        hasOnboarded: false,
+
+        // Empty placeholders for later completion
+        bio: "",
+        dob: null,
+        gender: "",
         location: null,
-        visibility: 'active',
+        visibility: "active",
         media: [],
         posts: [],
         interests: [],
         hobbies: [],
         favorites: [],
-        createdAt: Date.now(),
-        visibilityMode: 'auto',
+        visibilityMode: "auto",
         fieldVisibility: {
-          age: 'public',
-          height: 'public',
-          city: 'public',
-          orientation: 'public',
-          interests: 'public',
-          hobbies: 'public',
-          likes: 'public',
-          dislikes: 'public',
-          lookingFor: 'public',
-          voiceIntro: 'public',
-          photos: 'matches',
+          age: "public",
+          height: "public",
+          city: "public",
+          orientation: "public",
+          interests: "public",
+          hobbies: "public",
+          likes: "public",
+          dislikes: "public",
+          lookingFor: "public",
+          voiceIntro: "public",
+          photos: "matches",
         },
-        nameChangedAt: 0,
-        pendingEmailChange: null,
-
-          // 👇 added flags so the UI can reliably branch
-        profileComplete: false,
-        hasOnboarded: false,
       };
       db.data.users.push(user);
       await db.write();
@@ -964,21 +968,23 @@ app.post('/api/auth/google', async (req, res) => {
 
     const jwtToken = signToken({ id: user.id, email: user.email });
 
-    // ✅ Return isNew flag for frontend redirect
+    // ✅ Return flags so frontend knows where to go
     res.json({
       token: jwtToken,
       user: baseSanitizeUser(user),
       isNew,
+      profileComplete: !!user.profileComplete,
     });
   } catch (err) {
-    console.error('❌ Google login failed:', err);
-    res.status(401).json({ error: 'Google login failed' });
+    console.error("❌ Google login failed:", err);
+    res.status(401).json({ error: "Google login failed" });
   }
 });
 
 
+
 /* ======================
-   DIRECT EMAIL SIGNUP (no code)
+   DIRECT EMAIL SIGNUP 
 ====================== */
 app.post('/api/auth/direct-signup', async (req, res) => {
   try {
