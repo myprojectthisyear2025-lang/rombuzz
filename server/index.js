@@ -953,6 +953,10 @@ app.post('/api/auth/google', async (req, res) => {
         },
         nameChangedAt: 0,
         pendingEmailChange: null,
+
+          // 👇 added flags so the UI can reliably branch
+        profileComplete: false,
+        hasOnboarded: false,
       };
       db.data.users.push(user);
       await db.write();
