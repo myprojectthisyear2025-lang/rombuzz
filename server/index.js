@@ -2217,21 +2217,37 @@ app.patch('/api/account/deactivate', authMiddleware, async (req, res) => {
   res.json({ success: true, message: 'Account deactivated', user: baseSanitizeUser(u) });
 });
 
-// Permanently delete account
+// Permanently delete account — full cleanup, allows re-signup with same email
 app.delete('/api/account/delete', authMiddleware, async (req, res) => {
-  await db.read();
-  const uid = req.user.id;
+  try {
+    await db.read();
+    const uid = req.user.id;
+    const user = db.data.users.find(u => u.id === uid);
 
-  db.data.users = db.data.users.filter(u => u.id !== uid);
-  db.data.posts = (db.data.posts || []).filter(p => p.userId !== uid);
-  db.data.notifications = (db.data.notifications || []).filter(n => n.toId !== uid && n.fromId !== uid);
-  db.data.matches = (db.data.matches || []).filter(m => !m.users.includes(uid));
-  db.data.messages = (db.data.messages || []).filter(m => m.from !== uid && m.to !== uid);
-  db.data.blocks = (db.data.blocks || []).filter(b => b.blocker !== uid && b.blocked !== uid);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-  await db.write();
-  res.json({ success: true, message: 'Account deleted permanently' });
+    // 🔥 Completely remove user record
+    db.data.users = db.data.users.filter(u => u.id !== uid);
+
+    // 🧹 Clean up all related data
+    db.data.posts = (db.data.posts || []).filter(p => p.userId !== uid);
+    db.data.notifications = (db.data.notifications || []).filter(n => n.toId !== uid && n.fromId !== uid);
+    db.data.matches = (db.data.matches || []).filter(m => !m.users.includes(uid));
+    db.data.messages = (db.data.messages || []).filter(m => m.from !== uid && m.to !== uid);
+    db.data.blocks = (db.data.blocks || []).filter(b => b.blocker !== uid && b.blocked !== uid);
+    db.data.matchStreaks = (db.data.matchStreaks || []).filter(s => s.user1 !== uid && s.user2 !== uid);
+    db.data.reports = (db.data.reports || []).filter(r => r.fromId !== uid && r.toId !== uid);
+
+    await db.write();
+
+    console.log(`🗑️ Account deleted permanently for ${user.email}`);
+    res.json({ success: true, message: "Account deleted permanently" });
+  } catch (err) {
+    console.error("❌ Error deleting account:", err);
+    res.status(500).json({ error: "Server error deleting account" });
+  }
 });
+
 
 /* ----------------------
    Get current user info
