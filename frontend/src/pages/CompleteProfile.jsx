@@ -60,25 +60,23 @@ const CompleteProfile = ({ user, setUser }) => {
       if (!avatarRes.ok) throw new Error("Avatar upload failed");
       const avatarData = await avatarRes.json();
 
-      // Update profile info
-      const profileRes = await fetch(`${API_BASE}/users/me`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-       body: JSON.stringify({
-        hobbies,
-        matchPref,
-        locationRadius,
-        ageRange,
-        avatar: avatarData.filename,
-        photos: photos.map((p) => p.name),
-        profileComplete: true,   // 👈 add this
-        hasOnboarded: true       // 👈 optional
-}),
+     // ✅ Update profile info via new endpoint
+const profileRes = await fetch(`${API_BASE}/profile/complete`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    avatar: avatarData.url || avatarData.filename,
+photos: photos.map((p) => p.url || p.name),
+    hobbies,
+    matchPref,
+    locationRadius,
+    ageRange,
+  }),
+});
 
-      });
       if (!profileRes.ok) throw new Error("Failed to save profile");
       const updatedUser = await profileRes.json();
 

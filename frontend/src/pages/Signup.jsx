@@ -89,21 +89,25 @@ const handleGoogleSignup = async (response) => {
       token: response.credential,
     });
 
-    const { token, user, isNew, profileComplete } = res.data || {};
-    if (!token || !user) throw new Error("Invalid response from server");
+  const { status, token, user } = res.data || {};
+if (!token || !user) throw new Error("Invalid response from server");
 
-    // ✅ Save token + user
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
-    if (setUser) setUser(user);
+// 🧹 Clear any stale data first
+localStorage.removeItem("user");
+localStorage.removeItem("token");
 
-    // ✅ Determine where to go
-    const needsProfile = isNew || !profileComplete || !user.avatar;
-    if (needsProfile) {
-      navigate("/completeprofile", { replace: true });
-    } else {
-      navigate("/discover", { replace: true });
-    }
+// ✅ Save fresh token + user
+localStorage.setItem("token", token);
+localStorage.setItem("user", JSON.stringify(user));
+if (setUser) setUser(user);
+
+// ✅ Redirect based on backend status
+if (status === "incomplete_profile") {
+  navigate("/completeprofile", { replace: true });
+} else {
+  navigate("/discover", { replace: true });
+}
+
   } catch (e) {
     console.error("Google signup error:", e);
     setError(

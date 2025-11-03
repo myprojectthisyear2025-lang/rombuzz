@@ -72,12 +72,24 @@ export default function Notifications() {
       setNotifications((prev) => [n, ...prev]);
     };
 
-    socket.on("notification", onNotif);
-    return () => {
-      try {
-        socket.off("notification", onNotif);
-      } catch {}
-    };
+     // 🔔 Standard generic notification event
+  socket.on("notification", onNotif);
+
+  // 📸 NEW: Listen for 'notification:new_post' from profile completion
+  socket.on("notification:new_post", (notif) => {
+    if (!notif?.id) return;
+    if (seenIds.current.has(notif.id)) return;
+    seenIds.current.add(notif.id);
+    setNotifications((prev) => [notif, ...prev]);
+  });
+
+   return () => {
+  try {
+    socket.off("notification", onNotif);
+    socket.off("notification:new_post"); // ✅ clean up new listener too
+  } catch {}
+};
+
   }, [token]);
 
   // ---------- Normalize app routes (stay in-app, avoid homepage) ----------

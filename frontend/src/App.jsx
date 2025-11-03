@@ -64,37 +64,50 @@ function AppWrapper() {
   const [user, setUser] = useState(null);
   const location = useLocation();
 
-  // 🔍 Check token on startup
-  useEffect(() => {
-    const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+  // 🔍 Restore session on startup
+useEffect(() => {
+  const storedUser =
+    localStorage.getItem("user") || sessionStorage.getItem("user");
+  if (storedUser) {
+    try {
+      setUser(JSON.parse(storedUser));
+    } catch {}
+  }
 
-    fetch(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
+  const token =
+    localStorage.getItem("token") || sessionStorage.getItem("token");
+  if (!token) {
+    setLoading(false);
+    return;
+  }
+
+  fetch(`${API_BASE}/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then((res) => {
+      if (!res.ok) throw new Error("Invalid token");
+      return res.json();
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Invalid token");
-        return res.json();
-      })
-      .then((data) => {
-        if (data.user) {
-          setUser(data.user);
-          localStorage.setItem("user", JSON.stringify(data.user));
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("user");
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    .then((data) => {
+      // ✅ data here is the user object directly from backend
+      if (data && !data.error) {
+        setUser(data);
+        localStorage.setItem("user", JSON.stringify(data));
+      } else {
+        throw new Error("Invalid response");
+      }
+    })
+    .catch(() => {
+      // ❌ Token invalid → clear everything
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
+      setUser(null);
+    })
+    .finally(() => setLoading(false));
+}, []);
+
 
   if (loading)
     return (
