@@ -76,7 +76,7 @@ const handleDelete = async () => {
 
   if (
     !window.confirm(
-      "⚠️ This will permanently delete your account and all data. Continue?"
+      "⚠️ This will permanently delete your account and all data. Do you want to continue?"
     )
   )
     return;
@@ -101,7 +101,7 @@ const handleDelete = async () => {
 
     if (!res.ok) throw new Error(data.error || "Failed to delete");
 
-    alert("Your account has been permanently deleted.");
+    alert("We are sorry to see you go. Your account has been permanently deleted.");
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = "/signup";
