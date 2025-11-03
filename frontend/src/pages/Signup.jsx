@@ -85,16 +85,22 @@ const handleGoogleSignup = async (response) => {
   setError("");
   setLoading(true);
   try {
-      console.log("🔍 GOOGLE RESPONSE RECEIVED:", response); // ADD THIS
-    console.log("🔍 CREDENTIAL EXISTS?", !!response.credential); // ADD THIS
+    console.log("🔍 GOOGLE RESPONSE RECEIVED:", response);
+    console.log("🔍 CREDENTIAL EXISTS?", !!response.credential);
+    
     const res = await axios.post(`${API_BASE}/auth/google`, {
       token: response.credential,
     });
-    console.log("🔍 BACKEND RESPONSE:", res.data); // ADD THIS
+    
+    console.log("🔍 FULL BACKEND RESPONSE:", JSON.stringify(res.data, null, 2)); // CHANGED THIS LINE
+    console.log("🔍 RESPONSE STATUS:", res.data.status); // ADD THIS
+    console.log("🔍 USER PROFILE COMPLETE:", res.data.user?.profileComplete); // ADD THIS
+    console.log("🔍 IS NEW USER?", res.data.user?.createdAt); // ADD THIS
+    
+    const { status, token, user } = res.data || {};
+    if (!token || !user) throw new Error("Invalid response from server");
 
-  const { status, token, user } = res.data || {};
-if (!token || !user) throw new Error("Invalid response from server");
-
+   
 // 🧹 Clear any stale data first
 localStorage.removeItem("user");
 localStorage.removeItem("token");
