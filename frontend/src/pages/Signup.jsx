@@ -85,29 +85,37 @@ const handleGoogleSignup = async (response) => {
   setError("");
   setLoading(true);
   try {
+    console.log("🔍 Google credential received:", response.credential);
+    
     const res = await axios.post(`${API_BASE}/auth/google`, {
       token: response.credential,
     });
 
-  const { status, token, user } = res.data || {};
-if (!token || !user) throw new Error("Invalid response from server");
+    console.log("🔍 FULL GOOGLE RESPONSE:", res.data);
+    
+    const { status, token, user } = res.data || {};
+    console.log("🔍 EXTRACTED STATUS:", status);
+    console.log("🔍 IS USER PROFILE COMPLETE?", user?.profileComplete);
+    
+    if (!token || !user) throw new Error("Invalid response from server");
 
-// 🧹 Clear any stale data first
-localStorage.removeItem("user");
-localStorage.removeItem("token");
+    // 🧹 Clear any stale data first
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
 
-// ✅ Save fresh token + user
-localStorage.setItem("token", token);
-localStorage.setItem("user", JSON.stringify(user));
-if (setUser) setUser(user);
+    // ✅ Save fresh token + user
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+    if (setUser) setUser(user);
 
-// ✅ Redirect based on backend status
-if (status === "incomplete_profile") {
-  navigate("/completeprofile", { replace: true });
-} else {
-  navigate("/discover", { replace: true });
-}
-
+    // ✅ Redirect based on backend status
+    if (status === "incomplete_profile") {
+      console.log("🔄 Redirecting to CompleteProfile");
+      navigate("/completeprofile", { replace: true });
+    } else {
+      console.log("🔄 Redirecting to Discover");
+      navigate("/discover", { replace: true });
+    }
   } catch (e) {
     console.error("Google signup error:", e);
     setError(
@@ -161,15 +169,11 @@ if (status === "incomplete_profile") {
             <div className="flex flex-col gap-3">
             
 
-              <GoogleLogin
-                onSuccess={handleGoogleSignup}
-                onError={() => setError("Google signup failed")}
-                text="signup_with"
-                shape="pill"
-                width="330"
-                size="large"
-                theme="filled_pink"
-              />
+            <GoogleLogin
+  onSuccess={handleGoogleSignup}
+  onError={() => setError("Google signup failed")}
+  useOneTap={false}
+/>
             </div>
 
             <p className="mt-6 text-sm text-gray-600">
