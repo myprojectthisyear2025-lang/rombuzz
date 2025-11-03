@@ -1011,15 +1011,27 @@ app.post("/api/auth/google", async (req, res) => {
      const jwtToken = signToken({ id: user.id, email: user.email });
 
     // ✅ Determine correct status for frontend
-    const isProfileComplete = !!user.profileComplete && user.avatar;
+    // ✅ Determine correct status for frontend
+const isProfileComplete = Boolean(user.profileComplete);
 
-    if (isNew || !isProfileComplete) {
-      return res.json({
-        status: "incomplete_profile",
-        token: jwtToken,
-        user: baseSanitizeUser(user),
-      });
-    }
+// ✅ Always send incomplete_profile for brand-new users or anyone with profileComplete=false
+if (isNew || !isProfileComplete) {
+  console.log("🧩 Returning INCOMPLETE_PROFILE for:", user.email);
+  return res.json({
+    status: "incomplete_profile",
+    token: jwtToken,
+    user: baseSanitizeUser(user),
+  });
+}
+
+// ✅ Existing + completed profile
+console.log("🟢 Returning OK for:", user.email);
+res.json({
+  status: "ok",
+  token: jwtToken,
+  user: baseSanitizeUser(user),
+});
+
 
     // Existing + complete profile → normal login
     res.json({
@@ -1141,7 +1153,8 @@ app.post('/api/auth/direct-signup', async (req, res) => {
     }
 
     await db.read();
-    const exists = db.data.users.find(u => u.email === email.toLowerCase());
+const emailLower = String(email || "").trim().toLowerCase();
+const exists = db.data.users.find(u => (u.email || "").toLowerCase() === emailLower);
     if (exists) return res.status(400).json({ error: 'User already exists' });
 
     const hash = await bcrypt.hash(password, 10);
@@ -2384,85 +2397,60 @@ app.patch('/api/account/deactivate', authMiddleware, async (req, res) => {
   res.json({ success: true, message: 'Account deactivated', user: baseSanitizeUser(u) });
 });
 
-// Permanently delete account — full cleanup, allows re-signup with same email
+// Permanent account deletion
 app.delete("/api/account/delete", authMiddleware, async (req, res) => {
   try {
     await db.read();
+    db.data ||= {}; // ✅ ensure db.data exists even if undefined
     const uid = req.user.id;
-    const user = db.data.users.find((u) => u.id === uid);
+    const user = (db.data.users || []).find((u) => u.id === uid);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const emailLower = (user.email || "").toLowerCase();
+    const emailLower = (user.email || "").trim().toLowerCase();
 
-    // 🧹 1️⃣ Remove user record completely
-    db.data.users = (db.data.users || []).filter((u) => u.id !== uid);
-
-    // 🧹 2️⃣ Clean up all related records safely
+    // ✅ Defensive array filtering
     const safeFilter = (arr, fn) => (Array.isArray(arr) ? arr.filter(fn) : []);
+
+    // 🧹 Remove user and all associated data
+    db.data.users = safeFilter(db.data.users, (u) => u.id !== uid);
     db.data.posts = safeFilter(db.data.posts, (p) => p.userId !== uid);
     db.data.notifications = safeFilter(
       db.data.notifications,
-      (n) => n.toId !== uid && n.fromId !== uid
+      (n) => n.to !== uid && n.from !== uid
     );
     db.data.matches = safeFilter(
       db.data.matches,
-      (m) =>
-        !(
-          (Array.isArray(m.users) && m.users.includes(uid)) ||
-          m.userA === uid ||
-          m.userB === uid
-        )
+      (m) => !((m.users || []).includes(uid) || m.userA === uid || m.userB === uid)
     );
-    db.data.messages = safeFilter(
-      db.data.messages,
-      (m) => m.from !== uid && m.to !== uid
-    );
-    db.data.likes = safeFilter(
-      db.data.likes,
-      (l) => l.from !== uid && l.to !== uid
-    );
-    db.data.blocks = safeFilter(
-      db.data.blocks,
-      (b) => b.blocker !== uid && b.blocked !== uid
-    );
-    db.data.matchStreaks = safeFilter(
-      db.data.matchStreaks,
-      (s) => s.user1 !== uid && s.user2 !== uid
-    );
-    db.data.reports = safeFilter(
-      db.data.reports,
-      (r) => r.fromId !== uid && r.toId !== uid
-    );
-    db.data.microbuzz = safeFilter(
-      db.data.microbuzz,
-      (mb) => mb.userId !== uid
-    );
+    db.data.messages = safeFilter(db.data.messages, (m) => m.from !== uid && m.to !== uid);
+    db.data.likes = safeFilter(db.data.likes, (l) => l.from !== uid && l.to !== uid);
+    db.data.blocks = safeFilter(db.data.blocks, (b) => b.blocker !== uid && b.blocked !== uid);
+    db.data.matchStreaks = safeFilter(db.data.matchStreaks, (s) => s.user1 !== uid && s.user2 !== uid);
+    db.data.reports = safeFilter(db.data.reports, (r) => r.fromId !== uid && r.toId !== uid);
+    db.data.microbuzz = safeFilter(db.data.microbuzz, (mb) => mb.userId !== uid);
 
-    // 🧹 3️⃣ Remove from persistent verification & reset code maps
+    // ✅ Clean verification & reset maps
     db.data.resetCodes ||= {};
     db.data.verificationCodes ||= {};
     delete db.data.resetCodes[emailLower];
     delete db.data.verificationCodes[emailLower];
 
-    // 🧹 4️⃣ Reset any in-memory temp maps (these exist in server memory)
-    if (typeof verificationCodes === "object") {
-      delete verificationCodes[emailLower];
-    }
-    if (typeof resetCodes === "object") {
-      delete resetCodes[emailLower];
-    }
+    if (typeof verificationCodes === "object") delete verificationCodes[emailLower];
+    if (typeof resetCodes === "object") delete resetCodes[emailLower];
 
-    // ✅ Commit changes
     await db.write();
 
     console.log(`🗑️ Account deleted permanently for ${user.email}`);
-    res.json({
+    return res.json({
       success: true,
       message: "Account deleted permanently — you can now sign up again.",
     });
   } catch (err) {
     console.error("❌ Error deleting account:", err);
-    res.status(500).json({ error: "Server error deleting account" });
+    return res.status(500).json({
+      error: "Server error deleting account",
+      details: err.message,
+    });
   }
 });
 
