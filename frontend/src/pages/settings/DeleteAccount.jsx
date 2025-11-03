@@ -69,37 +69,48 @@ export default function DeleteAccount() {
   // ----------------------------
   // 🗑️ Permanently delete account
   // ----------------------------
-  const handleDelete = async () => {
-    const t = token();
-    if (!t) return alert("Login required");
+ // 🗑️ Permanently delete account
+const handleDelete = async () => {
+  const t = token();
+  if (!t) return alert("Login required");
 
-    if (
-      !window.confirm(
-        "⚠️ This will permanently delete your account and all data. Continue?"
-      )
+  if (
+    !window.confirm(
+      "⚠️ This will permanently delete your account and all data. Continue?"
     )
-      return;
+  )
+    return;
 
+  try {
+    const res = await fetch(`${API_BASE}/account/delete`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${t}` },
+    });
+
+    // ✅ FIX: Read response once and parse as JSON
+    const responseText = await res.text();
+    console.log("🔍 DELETE RESPONSE:", res.status, responseText);
+    
+    let data;
     try {
-      const res = await fetch(`${API_BASE}/account/delete`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      console.log("🔍 DELETE RESPONSE:", res.status, await res.text());
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete");
-
-     alert("Your account has been permanently deleted.");
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = "/signup"; // redirect to signup for new account creation
-
-    } catch (err) {
-      console.error(err);
-      alert("Could not delete account.");
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      throw new Error("Invalid server response from server");
     }
-  };
+
+    if (!res.ok) throw new Error(data.error || "Failed to delete");
+
+    alert("Your account has been permanently deleted.");
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/signup";
+
+  } catch (err) {
+    console.error("Delete error:", err);
+    alert("Could not delete account: " + err.message);
+  }
+};
 
   // ----------------------------
   // ♻️ Auto-reactivate on login
