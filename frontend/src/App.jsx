@@ -1,4 +1,4 @@
-//App.jsx
+//frontend/src/App.jsx
 
 
 import React, { useEffect, useState } from "react";
@@ -129,20 +129,18 @@ useEffect(() => {
           <Route path="/" element={<Home />} />
           <Route path="/letsbuzz" element={<LetsBuzz />} />
           <Route
-            path="/login"
-            element={
-              user ? <Navigate to="/discover" /> : <Login setUser={setUser} />
-            }
-          />
+              path="/login"
+              element={
+                user && user.profileComplete ? <Navigate to="/discover" /> : <Login setUser={setUser} />
+              }
+            />
 
               <Route
-                path="/signup"
-                element={
-                  user ? <Navigate to="/discover" /> : <Signup setUser={setUser} />
-                }
-              />
-
-
+                  path="/signup"
+                  element={
+                    user && user.profileComplete ? <Navigate to="/discover" /> : <Signup setUser={setUser} />
+                  }
+                />
 
           {/* --- Protected Routes --- */}
           <Route
@@ -157,6 +155,14 @@ useEffect(() => {
             path="/register"
             element={<Register user={user} setUser={setUser} />}
           />
+          <Route
+                path="/completeprofile"
+                element={
+                  <ProtectedRoute>
+                    <CompleteProfile user={user} setUser={setUser} />
+                  </ProtectedRoute>
+                }
+              />
 
           <Route
             path="/profile"
