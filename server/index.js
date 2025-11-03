@@ -146,12 +146,20 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 // 🔧 MISSING HELPER FUNCTIONS
 // =======================
 
-// Base user sanitization
+// Base user sanitization (✅ updated to include profileComplete flag)
 function baseSanitizeUser(user) {
   if (!user) return null;
+
+  // Remove sensitive fields but keep important flags
   const { passwordHash, emailVerificationCode, pendingEmailChange, ...safe } = user;
-  return safe;
+
+  // ✅ Ensure frontend knows if profile setup is done
+  return {
+    ...safe,
+    profileComplete: user.profileComplete,
+  };
 }
+
 
 // Block check helper
 function isBlocked(user1, user2) {
@@ -816,35 +824,67 @@ app.post('/api/auth/send-code', async (req, res) => {
   }
 });
 
-
-
-
-// Email/password login
-app.post('/api/auth/login', async (req, res) => {
+// =======================
+// 📧 EMAIL / PASSWORD LOGIN
+// =======================
+app.post("/api/auth/login", async (req, res) => {
   console.log("🟢 Login API hit with body:", req.body);
+
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ error: "Email & password required" });
+
+  await db.read();
+  const emailLower = String(email || "").trim().toLowerCase();
+const user = db.data.users.find((u) => (u.email || "").toLowerCase() === emailLower);
+
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+console.log("DEBUG LOGIN →", {
+  email,
+  passwordProvided: password,
+  passwordHashStored: user.passwordHash,
+});
+
+  // ✅ Proper bcrypt compare (your hash is stored at signup)
+  const match = await bcrypt.compare(password, user.passwordHash);
+  if (!match) return res.status(401).json({ error: "Invalid credentials" });
+
+  const token = signToken({ id: user.id, email: user.email });
+  res.json({ token, user: baseSanitizeUser(user) });
+});
+
+
 // =======================
-// 🔁 FORGOT / RESET PASSWORD
+// 🔁 FORGOT / RESET PASSWORD (Persistent Version)
 // =======================
-let resetCodes = {}; // { emailLower: { code, expires } }
 
 // Step 1 — Send reset code
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: "Email is required" });
 
   await db.read();
-  const user = db.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user) return res.status(404).json({ error: "No user found with that email" });
+  const user = db.data.users.find(
+    (u) => (u.email || "").toLowerCase() === email.toLowerCase()
+  );
+  if (!user)
+    return res.status(404).json({ error: "No user found with that email" });
 
+  // ✅ Ensure persistent storage exists
+  db.data.resetCodes ||= {};
+
+  const emailLower = email.toLowerCase();
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = Date.now() + 10 * 60 * 1000;
-  resetCodes[email.toLowerCase()] = { code, expires };
+  const expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  db.data.resetCodes[emailLower] = { code, expires };
+  await db.write();
 
   try {
     if (!process.env.SENDGRID_API_KEY) {
       console.log(`📧 [DEV] Password reset code for ${email}: ${code}`);
       return res.json({ success: true, dev: true });
     }
+
     const msg = {
       to: email,
       from: process.env.FROM_EMAIL || "myprojectthisyear2025@gmail.com",
@@ -854,51 +894,53 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     };
     await sgMail.send(msg);
     res.json({ success: true });
- } catch (err) {
-  console.error("❌ SendGrid error:", err.response?.body || err.message || err);
-  res.status(500).json({ 
-    error: err.response?.body?.errors?.[0]?.message || err.message || "Failed to send reset code" 
-  });
-}
-
+  } catch (err) {
+    console.error(
+      "❌ SendGrid error:",
+      err.response?.body || err.message || err
+    );
+    res.status(500).json({
+      error:
+        err.response?.body?.errors?.[0]?.message ||
+        err.message ||
+        "Failed to send reset code",
+    });
+  }
 });
 
 // Step 2 — Verify and reset
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post("/api/auth/reset-password", async (req, res) => {
   const { email, code, newPassword } = req.body || {};
   if (!email || !code || !newPassword)
-    return res.status(400).json({ error: "Email, code, and new password required" });
-
-  const rec = resetCodes[email.toLowerCase()];
-  if (!rec) return res.status(400).json({ error: "No reset request found" });
-  if (rec.expires < Date.now()) return res.status(400).json({ error: "Code expired" });
-  if (rec.code !== code) return res.status(400).json({ error: "Invalid code" });
+    return res
+      .status(400)
+      .json({ error: "Email, code, and new password required" });
 
   await db.read();
-  const user = db.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+  db.data.resetCodes ||= {};
+  const emailLower = email.toLowerCase();
+  const rec = db.data.resetCodes[emailLower];
+
+  if (!rec)
+    return res.status(400).json({ error: "No reset request found" });
+  if (rec.expires < Date.now())
+    return res.status(400).json({ error: "Code expired" });
+  if (rec.code !== code)
+    return res.status(400).json({ error: "Invalid code" });
+
+  const user = db.data.users.find(
+    (u) => (u.email || "").toLowerCase() === emailLower
+  );
   if (!user) return res.status(404).json({ error: "User not found" });
 
+  // ✅ Save new password hash
   user.passwordHash = await bcrypt.hash(newPassword, 10);
+  delete db.data.resetCodes[emailLower];
   await db.write();
-  delete resetCodes[email.toLowerCase()];
 
   res.json({ success: true, message: "Password reset successful" });
 });
 
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email & password required' });
-
-  await db.read();
-  const user = db.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-
-  const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) return res.status(401).json({ error: 'Invalid credentials' });
-
-const token = signToken({ id: user.id, email: user.email });
-res.json({ token, user: baseSanitizeUser(user) });
-
-});
 
 
 // =======================
@@ -966,18 +1008,123 @@ app.post("/api/auth/google", async (req, res) => {
       await db.write();
     }
 
-    const jwtToken = signToken({ id: user.id, email: user.email });
+     const jwtToken = signToken({ id: user.id, email: user.email });
 
-    // ✅ Return flags so frontend knows where to go
+    // ✅ Determine correct status for frontend
+    const isProfileComplete = !!user.profileComplete && user.avatar;
+
+    if (isNew || !isProfileComplete) {
+      return res.json({
+        status: "incomplete_profile",
+        token: jwtToken,
+        user: baseSanitizeUser(user),
+      });
+    }
+
+    // Existing + complete profile → normal login
     res.json({
+      status: "ok",
       token: jwtToken,
       user: baseSanitizeUser(user),
-      isNew,
-      profileComplete: !!user.profileComplete,
     });
+
   } catch (err) {
     console.error("❌ Google login failed:", err);
     res.status(401).json({ error: "Google login failed" });
+  }
+});
+
+// =======================
+// 🧩 COMPLETE PROFILE ROUTE
+// =======================
+app.post("/api/profile/complete", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await db.read();
+    const user = db.data.users.find((u) => u.id === userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Update profile fields
+    const {
+      avatar,
+      photos,
+      hobbies,
+      matchPref,
+      locationRadius,
+      ageRange,
+    } = req.body;
+
+ Object.assign(user, {
+  avatar,
+  photos: photos || [],
+  hobbies,
+  matchPref,
+  locationRadius,
+  ageRange,
+  profileComplete: true,
+  hasOnboarded: true,
+  updatedAt: Date.now(),
+});
+
+// ✅ Auto-create MyBuzz & LetsBuzz posts for uploaded photos
+if (!db.data.posts) db.data.posts = [];
+
+(photos || []).forEach((photoUrl) => {
+  const newPost = {
+    id: shortid.generate(),
+    userId: user.id,
+    type: "photo",
+    mediaUrl: photoUrl,
+caption: `${user.firstName || "Someone"} just joined RomBuzz ✨ Let's Buzz!`,
+    visibility: "public", // visible on LetsBuzz + profile
+    createdAt: Date.now(),
+    likes: [],
+    comments: [],
+    reactions: {},
+  };
+  db.data.posts.push(newPost);
+});
+
+await db.write();
+
+// ✅ Notify all matched users about new posts
+if (!db.data.matches) db.data.matches = [];
+if (!db.data.notifications) db.data.notifications = [];
+
+const matchedUsers = db.data.matches
+  .filter(
+    (m) =>
+      (m.user1 === user.id || m.user2 === user.id) &&
+      m.status === "matched"
+  )
+  .map((m) => (m.user1 === user.id ? m.user2 : m.user1));
+
+for (const matchId of matchedUsers) {
+  const notif = {
+    id: shortid.generate(),
+    type: "new_post",
+    from: user.id,
+    to: matchId,
+    message: `${user.firstName || "Someone"} just shared new photos! 💫`,
+    createdAt: Date.now(),
+    read: false,
+    link: "/letsbuzz", // where they'll be directed when clicked
+  };
+  db.data.notifications.push(notif);
+
+  // ✅ Emit real-time socket event if the matched user is online
+  if (io) {
+    io.to(matchId).emit("notification:new_post", notif);
+  }
+}
+
+await db.write();
+
+res.json(baseSanitizeUser(user));
+
+  } catch (err) {
+    console.error("❌ /api/profile/complete failed:", err);
+    res.status(500).json({ error: "Server error completing profile" });
   }
 });
 
@@ -1055,7 +1202,21 @@ function authMiddleware(req, res, next) {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
+// ----------------------
+// ✅ Current user (for App.jsx restore)
+// ----------------------
+app.get('/api/users/me', authMiddleware, async (req, res) => {
+  await db.read();
+  const u = (db.data.users || []).find(x => x.id === req.user.id);
+  if (!u) return res.status(404).json({ error: 'User not found' });
 
+  // Return a safe user object (no password/hash)
+  const safe = { ...u };
+  delete safe.password;
+  delete safe.passwordHash;
+  delete safe.emailVerificationCode;
+  res.json(safe);
+});
 // =======================
 // 📸 UPLOAD AVATAR (with Cloudinary)
 // =======================
@@ -2224,35 +2385,87 @@ app.patch('/api/account/deactivate', authMiddleware, async (req, res) => {
 });
 
 // Permanently delete account — full cleanup, allows re-signup with same email
-app.delete('/api/account/delete', authMiddleware, async (req, res) => {
+app.delete("/api/account/delete", authMiddleware, async (req, res) => {
   try {
     await db.read();
     const uid = req.user.id;
-    const user = db.data.users.find(u => u.id === uid);
-
+    const user = db.data.users.find((u) => u.id === uid);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // 🔥 Completely remove user record
-    db.data.users = db.data.users.filter(u => u.id !== uid);
+    const emailLower = (user.email || "").toLowerCase();
 
-    // 🧹 Clean up all related data
-    db.data.posts = (db.data.posts || []).filter(p => p.userId !== uid);
-    db.data.notifications = (db.data.notifications || []).filter(n => n.toId !== uid && n.fromId !== uid);
-    db.data.matches = (db.data.matches || []).filter(m => !m.users.includes(uid));
-    db.data.messages = (db.data.messages || []).filter(m => m.from !== uid && m.to !== uid);
-    db.data.blocks = (db.data.blocks || []).filter(b => b.blocker !== uid && b.blocked !== uid);
-    db.data.matchStreaks = (db.data.matchStreaks || []).filter(s => s.user1 !== uid && s.user2 !== uid);
-    db.data.reports = (db.data.reports || []).filter(r => r.fromId !== uid && r.toId !== uid);
+    // 🧹 1️⃣ Remove user record completely
+    db.data.users = (db.data.users || []).filter((u) => u.id !== uid);
 
+    // 🧹 2️⃣ Clean up all related records safely
+    const safeFilter = (arr, fn) => (Array.isArray(arr) ? arr.filter(fn) : []);
+    db.data.posts = safeFilter(db.data.posts, (p) => p.userId !== uid);
+    db.data.notifications = safeFilter(
+      db.data.notifications,
+      (n) => n.toId !== uid && n.fromId !== uid
+    );
+    db.data.matches = safeFilter(
+      db.data.matches,
+      (m) =>
+        !(
+          (Array.isArray(m.users) && m.users.includes(uid)) ||
+          m.userA === uid ||
+          m.userB === uid
+        )
+    );
+    db.data.messages = safeFilter(
+      db.data.messages,
+      (m) => m.from !== uid && m.to !== uid
+    );
+    db.data.likes = safeFilter(
+      db.data.likes,
+      (l) => l.from !== uid && l.to !== uid
+    );
+    db.data.blocks = safeFilter(
+      db.data.blocks,
+      (b) => b.blocker !== uid && b.blocked !== uid
+    );
+    db.data.matchStreaks = safeFilter(
+      db.data.matchStreaks,
+      (s) => s.user1 !== uid && s.user2 !== uid
+    );
+    db.data.reports = safeFilter(
+      db.data.reports,
+      (r) => r.fromId !== uid && r.toId !== uid
+    );
+    db.data.microbuzz = safeFilter(
+      db.data.microbuzz,
+      (mb) => mb.userId !== uid
+    );
+
+    // 🧹 3️⃣ Remove from persistent verification & reset code maps
+    db.data.resetCodes ||= {};
+    db.data.verificationCodes ||= {};
+    delete db.data.resetCodes[emailLower];
+    delete db.data.verificationCodes[emailLower];
+
+    // 🧹 4️⃣ Reset any in-memory temp maps (these exist in server memory)
+    if (typeof verificationCodes === "object") {
+      delete verificationCodes[emailLower];
+    }
+    if (typeof resetCodes === "object") {
+      delete resetCodes[emailLower];
+    }
+
+    // ✅ Commit changes
     await db.write();
 
     console.log(`🗑️ Account deleted permanently for ${user.email}`);
-    res.json({ success: true, message: "Account deleted permanently" });
+    res.json({
+      success: true,
+      message: "Account deleted permanently — you can now sign up again.",
+    });
   } catch (err) {
     console.error("❌ Error deleting account:", err);
     res.status(500).json({ error: "Server error deleting account" });
   }
 });
+
 
 
 /* ----------------------
