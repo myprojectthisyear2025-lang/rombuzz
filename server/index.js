@@ -1010,8 +1010,7 @@ app.post("/api/auth/google", async (req, res) => {
 
      const jwtToken = signToken({ id: user.id, email: user.email });
 
-    // ✅ Determine correct status for frontend
-    // ✅ Determine correct status for frontend
+ // ✅ Determine correct status for frontend
 const isProfileComplete = Boolean(user.profileComplete);
 
 // ✅ Always send incomplete_profile for brand-new users or anyone with profileComplete=false
@@ -1024,14 +1023,13 @@ if (isNew || !isProfileComplete) {
   });
 }
 
-// ✅ Existing + completed profile
+// ✅ Existing + completed profile → normal login
 console.log("🟢 Returning OK for:", user.email);
 res.json({
   status: "ok",
   token: jwtToken,
   user: baseSanitizeUser(user),
 });
-
 
     // Existing + complete profile → normal login
     res.json({
