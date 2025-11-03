@@ -111,12 +111,18 @@ localStorage.setItem("user", JSON.stringify(user));
 if (setUser) setUser(user);
 
 // ✅ Redirect based on backend status
+console.log("🔄 FINAL CHECK - status:", status, "profileComplete:", user?.profileComplete);
 if (status === "incomplete_profile") {
-  navigate("/completeprofile", { replace: true });
+  console.log("🔄 Redirecting to CompleteProfile");
+  setTimeout(() => {
+    navigate("/completeprofile", { replace: true });
+  }, 100);
 } else {
-  navigate("/discover", { replace: true });
+  console.log("🔄 Redirecting to Discover - status was:", status);
+  setTimeout(() => {
+    navigate("/discover", { replace: true });
+  }, 100);
 }
-
   } catch (e) {
     console.error("Google signup error:", e);
     setError(
