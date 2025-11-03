@@ -87,22 +87,27 @@ const handleGoogleSuccess = async (credentialResponse) => {
     const cred = credentialResponse?.credential;
     if (!cred) throw new Error("Missing Google credential");
 
-    const res = await axios.post(`${API_BASE}/auth/google`, { token: cred });
-    const { token, user, isNew, profileComplete } = res.data || {};
-    if (!token || !user) throw new Error("Invalid response from server");
+  const res = await axios.post(`${API_BASE}/auth/google`, { token: cred });
+const { token, user, status } = res.data || {};
+if (!token || !user) throw new Error("Invalid response from server");
 
-    // ✅ Always save token + user
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
-    if (setUser) setUser(user);
+// ✅ Save session
+localStorage.setItem("token", token);
+localStorage.setItem("user", JSON.stringify(user));
+if (setUser) setUser(user);
 
-    // ✅ Redirect logic
-    const needsProfile = isNew || !profileComplete || !user.avatar;
-    if (needsProfile) {
-      navigate("/completeprofile", { replace: true });
-    } else {
-      navigate("/discover", { replace: true });
-    }
+// ✅ Redirect based on backend status
+if (status === "incomplete_profile") {
+  console.log("🧩 New Google user → redirecting to CompleteProfile");
+  navigate("/completeprofile", { replace: true });
+} else if (status === "ok") {
+  console.log("🟢 Returning Google user → redirecting to Discover");
+  navigate("/discover", { replace: true });
+} else {
+  console.warn("⚠️ Unexpected Google auth status:", status);
+  alert("Google login returned an unknown status. Please try again.");
+}
+
   } catch (err) {
     console.error("Google login error:", err);
     setError(
