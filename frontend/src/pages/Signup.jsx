@@ -111,12 +111,17 @@ localStorage.setItem("user", JSON.stringify(user));
 if (setUser) setUser(user);
 
 // ✅ Redirect based on backend status
+console.log("🔄 FINAL CHECK - status:", status, "profileComplete:", user?.profileComplete);
 if (status === "incomplete_profile") {
-  console.log("🔄 Redirecting to Register (6-step wizard)");
-  navigate("/register", { replace: true });
+  console.log("🔄 Redirecting to CompleteProfile");
+  setTimeout(() => {
+    navigate("/completeprofile", { replace: true });
+  }, 100);
 } else {
-  console.log("🔄 Redirecting to Discover");
-  navigate("/discover", { replace: true });
+  console.log("🔄 Redirecting to Discover - status was:", status);
+  setTimeout(() => {
+    navigate("/discover", { replace: true });
+  }, 100);
 }
   } catch (e) {
     console.error("Google signup error:", e);
@@ -129,6 +134,8 @@ if (status === "incomplete_profile") {
     setLoading(false);
   }
 };
+
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-500 to-red-500 px-4">
