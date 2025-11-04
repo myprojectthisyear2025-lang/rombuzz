@@ -845,9 +845,19 @@ console.log("DEBUG LOGIN →", {
   passwordHashStored: user.passwordHash,
 });
 
-  // ✅ Proper bcrypt compare (your hash is stored at signup)
-  const match = await bcrypt.compare(password, user.passwordHash);
-  if (!match) return res.status(401).json({ error: "Invalid credentials" });
+  // ✅ Safe compare even if hash missing
+let match = false;
+try {
+  if (user.passwordHash) {
+    match = await bcrypt.compare(password, user.passwordHash);
+  }
+} catch (err) {
+  console.error("bcrypt compare error:", err);
+}
+if (!match) {
+  console.warn("⚠️ Login failed: invalid credentials or missing hash for", emailLower);
+  return res.status(401).json({ error: "Invalid credentials" });
+}
 
   const token = signToken({ id: user.id, email: user.email });
   res.json({ token, user: baseSanitizeUser(user) });
