@@ -457,14 +457,17 @@ useEffect(() => {
                       ))}
                     </select>
 
-                    <input
+                  <input
                       type="date"
+                      placeholder="Date of birth"
                       className={`w-full p-3 border rounded-lg focus:ring-2 ${
                         dobInvalid ? "border-rose-500 focus:ring-rose-300" : "focus:ring-pink-400"
                       }`}
                       value={form.dob}
                       onChange={(e) => setField("dob", e.target.value)}
+                      onFocus={(e) => e.target.showPicker?.()} // optional: auto-open date picker on click
                     />
+
                   </div>
 
                   {dobInvalid && (
