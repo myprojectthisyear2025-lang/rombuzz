@@ -3235,19 +3235,20 @@ if (requestedVibe && isRestricted(requestedVibe) && !canUseRestricted(me)) {
 let baseLat = parseFloat(lat) || self.location?.lat;
 let baseLng = parseFloat(lng) || self.location?.lng;
 
- // 🌍 Handle coordinates more flexibly (even in production)
-if (!baseLat || !baseLng) {
-  // Try last known location
+// 🌍 Handle coordinates more flexibly (even in production)
+// Use numeric checks so 0.0 is NOT treated as missing
+if (isNaN(baseLat) || isNaN(baseLng)) {
   if (self.location?.lat && self.location?.lng) {
+    console.log("📍 Using last known location:", self.location);
     baseLat = self.location.lat;
     baseLng = self.location.lng;
   } else {
-    // Fallback (default = Chicago center)
     baseLat = Number(process.env.DEV_DEFAULT_LAT || 41.8781);
     baseLng = Number(process.env.DEV_DEFAULT_LNG || -87.6298);
     console.warn("⚠️ DISCOVER fallback coords used (no GPS)");
   }
 }
+
 
 
 // ✅ Update user’s last known location if changed or missing
@@ -3354,26 +3355,33 @@ if (vibe && canFilterWithRequestedVibe) {
     /* -----------------------------
        ✨ Response Sanitization
     ------------------------------*/
-    const sanitize = (u) => {
-      const hasLocation = Boolean(u.location?.lat && u.location?.lng);
-      return {
-        id: u.id,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        avatar: u.avatar || "https://via.placeholder.com/400x400?text=No+Photo",
-        bio: u.bio || "",
-        gender: u.gender || "",
-        vibe: u.vibe || "",
-        intent: u.intent || "",
-        verified: u.verified || false,
-        zodiac: u.zodiac || "",
-        loveLanguage: u.loveLanguage || "",
-        distanceMeters: hasLocation
-          ? Math.round(getDistanceMeters(baseLat, baseLng, u.location.lat, u.location.lng))
-          : null,
-        active: hasLocation,
-        status: hasLocation ? "active" : "inactive", // 🆕 explicit status string
-      };
+  // Compute and format distance text (1 mile min, hide coordinates)
+let distanceMeters = null;
+let distanceText = "—";
+
+if (hasLocation) {
+  distanceMeters = Math.round(getDistanceMeters(baseLat, baseLng, u.location.lat, u.location.lng));
+  // Convert to miles (1 mile = 1609.34 m)
+  const miles = Math.max(1, Math.round(distanceMeters / 1609.34));
+  distanceText = `${miles} mile${miles !== 1 ? "s" : ""} away`;
+}
+
+return {
+  id: u.id,
+  firstName: u.firstName,
+  lastName: u.lastName,
+  avatar: u.avatar || "https://via.placeholder.com/400x400?text=No+Photo",
+  bio: u.bio || "",
+  gender: u.gender || "",
+  vibe: u.vibe || "",
+  intent: u.intent || "",
+  verified: u.verified || false,
+  zodiac: u.zodiac || "",
+  loveLanguage: u.loveLanguage || "",
+  distanceMeters,
+  distanceText, // 🆕 added field
+  status: hasLocation ? "active" : "inactive",
+
     };
 
     // 🧭 Sort: active first, then by distance, then inactive
