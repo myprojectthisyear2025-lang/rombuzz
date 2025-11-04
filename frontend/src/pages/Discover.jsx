@@ -1132,14 +1132,23 @@ export default function Discover() {
                     {/* Footer */}
                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/70 to-transparent text-white">
                       <div
-                        className="text-2xl font-semibold hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openProfile();
-                        }}
-                      >
-                        {current.firstName} {current.lastName}
-                      </div>
+                          className="flex items-center gap-2 text-2xl font-semibold hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openProfile();
+                          }}
+                        >
+                          {current.firstName} {current.lastName}
+                          <span
+                            className={`inline-block w-3 h-3 rounded-full ${
+                              current.status === "active"
+                                ? "bg-green-500 shadow-[0_0_6px_2px_rgba(34,197,94,0.6)] animate-pulse"
+                                : "bg-gray-400"
+                            }`}
+                            title={current.status === "active" ? "Online" : "Offline"}
+                          ></span>
+                        </div>
+
                       <div className="text-sm opacity-90 line-clamp-2">
                         {current.bio ? current.bio : "No bio yet."}
                       </div>
