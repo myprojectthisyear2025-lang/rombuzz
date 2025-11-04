@@ -54,6 +54,31 @@ const db = new Low(new JSONFile('db.json'));
   await db.write();
 })();
 
+// =======================
+// 🧹 One-time password migration (plain → hash)
+// =======================
+(async () => {
+  try {
+    await db.read();
+    let updated = 0;
+    for (const u of db.data.users || []) {
+      if (u.password && !u.passwordHash) {
+        u.passwordHash = await bcrypt.hash(u.password, 10);
+        delete u.password;
+        updated++;
+      }
+    }
+    if (updated > 0) {
+      await db.write();
+      console.log(`🔒 Migrated ${updated} legacy plain-text password(s) to hashed version`);
+    } else {
+      console.log("✅ No legacy passwords found — all accounts already hashed");
+    }
+  } catch (err) {
+    console.error("⚠️ Password migration error:", err);
+  }
+})();
+
 /* -------------------------------------------
    🛡️ Global write guard for Windows EPERM
    - Serializes writes
@@ -844,20 +869,22 @@ console.log("DEBUG LOGIN →", {
   passwordProvided: password,
   passwordHashStored: user.passwordHash,
 });
-
-  // ✅ Safe compare even if hash missing
+// ✅ Compare hashed OR legacy plain password
 let match = false;
 try {
   if (user.passwordHash) {
     match = await bcrypt.compare(password, user.passwordHash);
+  } else if (user.password && password === user.password) {
+    match = true;
   }
 } catch (err) {
-  console.error("bcrypt compare error:", err);
+    console.error("bcrypt compare error:", err);
 }
 if (!match) {
-  console.warn("⚠️ Login failed: invalid credentials or missing hash for", emailLower);
+  console.warn("⚠️ Login failed for", emailLower);
   return res.status(401).json({ error: "Invalid credentials" });
 }
+
 
   const token = signToken({ id: user.id, email: user.email });
   res.json({ token, user: baseSanitizeUser(user) });
