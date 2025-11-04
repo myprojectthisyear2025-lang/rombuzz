@@ -113,10 +113,9 @@ if (setUser) setUser(user);
 // ✅ Redirect based on backend status
 console.log("🔄 FINAL CHECK - status:", status, "profileComplete:", user?.profileComplete);
 if (status === "incomplete_profile") {
-  console.log("🔄 Redirecting to CompleteProfile");
+  console.log("🔄 Redirecting to Register");
   setTimeout(() => {
-    navigate("/completeprofile", { replace: true });
-  }, 100);
+navigate("/register", { replace: true });  }, 100);
 } else {
   console.log("🔄 Redirecting to Discover - status was:", status);
   setTimeout(() => {
