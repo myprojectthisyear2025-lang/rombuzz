@@ -946,6 +946,7 @@ app.post("/api/auth/reset-password", async (req, res) => {
 // =======================
 // 🔐 GOOGLE LOGIN / SIGNUP (fixed for CompleteProfile)
 // =======================
+/*
 app.post("/api/auth/google", async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "Google token required" });
@@ -1038,6 +1039,97 @@ res.json({
       user: baseSanitizeUser(user),
     });
 
+  } catch (err) {
+    console.error("❌ Google login failed:", err);
+    res.status(401).json({ error: "Google login failed" });
+  }
+});
+*/
+// =======================
+// 🔐 GOOGLE LOGIN / SIGNUP (Fixed lowercase + no duplicate res.json)
+// =======================
+app.post("/api/auth/google", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: "Google token required" });
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const email = String(payload.email || "").toLowerCase();
+
+    await db.read();
+    let user = db.data.users.find(
+      (u) => String(u.email || "").toLowerCase() === email
+    );
+    const isNew = !user;
+
+    // ✅ Create new Google user if not found
+    if (isNew) {
+      user = {
+        id: shortid.generate(),
+        email,
+        firstName: payload.given_name || "",
+        lastName: payload.family_name || "",
+        avatar: payload.picture || "",
+        passwordHash: "",
+        createdAt: Date.now(),
+
+        // Flags
+        profileComplete: false,
+        hasOnboarded: false,
+
+        // Placeholders
+        bio: "",
+        dob: null,
+        gender: "",
+        location: null,
+        visibility: "active",
+        media: [],
+        posts: [],
+        interests: [],
+        hobbies: [],
+        favorites: [],
+        visibilityMode: "auto",
+        fieldVisibility: {
+          age: "public",
+          height: "public",
+          city: "public",
+          orientation: "public",
+          interests: "public",
+          hobbies: "public",
+          likes: "public",
+          dislikes: "public",
+          lookingFor: "public",
+          voiceIntro: "public",
+          photos: "matches",
+        },
+      };
+      db.data.users.push(user);
+      await db.write();
+    }
+
+    const jwtToken = signToken({ id: user.id, email: user.email });
+    const isProfileComplete = Boolean(user.profileComplete);
+
+    // ✅ Decide redirect target
+    if (isNew || !isProfileComplete) {
+      console.log("🧩 Returning INCOMPLETE_PROFILE for:", user.email);
+      return res.json({
+        status: "incomplete_profile",
+        token: jwtToken,
+        user: baseSanitizeUser(user),
+      });
+    }
+
+    console.log("🟢 Returning OK for:", user.email);
+    return res.json({
+      status: "ok",
+      token: jwtToken,
+      user: baseSanitizeUser(user),
+    });
   } catch (err) {
     console.error("❌ Google login failed:", err);
     res.status(401).json({ error: "Google login failed" });
@@ -1223,6 +1315,7 @@ function authMiddleware(req, res, next) {
 // ----------------------
 // ✅ Current user (for App.jsx restore)
 // ----------------------
+/*
 app.get('/api/users/me', authMiddleware, async (req, res) => {
   await db.read();
   const u = (db.data.users || []).find(x => x.id === req.user.id);
@@ -1235,6 +1328,19 @@ app.get('/api/users/me', authMiddleware, async (req, res) => {
   delete safe.emailVerificationCode;
   res.json(safe);
 });
+*/
+
+// ----------------------
+// ✅ Current user (for App.jsx restore)
+// ----------------------
+app.get("/api/users/me", authMiddleware, async (req, res) => {
+  await db.read();
+  const u = (db.data.users || []).find((x) => x.id === req.user.id);
+  if (!u) return res.status(404).json({ error: "User not found" });
+
+  res.json(baseSanitizeUser(u));
+});
+
 // =======================
 // 📸 UPLOAD AVATAR (with Cloudinary)
 // =======================
@@ -1649,77 +1755,6 @@ app.post("/api/notifications/block/:userId", authMiddleware, async (req, res) =>
 });
 
 
-/* ======================
-   GOOGLE LOGIN
-====================== */
-/*
-app.post('/api/auth/google', async (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(400).json({ error: 'Google token required' });
-
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: GOOGLE_CLIENT_ID
-    });
-    const payload = ticket.getPayload();
-    const email = payload.email.toLowerCase();
-
-    await db.read();
-    let user = db.data.users.find(u => u.email === email);
-
-    if (!user) {
-    user = {
-  id: shortid.generate(),
-  firstName: payload.given_name || '',
-  lastName: payload.family_name || '',
-  email,
-  passwordHash: '',
-  bio: '',
-  avatar: payload.picture || '',
-  location: null,
-  visibility: 'active',
-  media: [],
-  posts: [],
-  interests: [],
-  hobbies: [],
-  favorites: [],
-  createdAt: Date.now(),
-
-  // ✅ add these
-  visibilityMode: 'auto',
-  fieldVisibility: {
-    age: 'public', height: 'public', city: 'public', orientation: 'public',
-    interests: 'public', hobbies: 'public', likes: 'public', dislikes: 'public',
-    lookingFor: 'public', voiceIntro: 'public', photos: 'matches'
-  },
-
-  // NEW
-  nameChangedAt: 0,
-  pendingEmailChange: null,
-};
-
-
-      db.data.users.push(user);
-      await db.write();
-    }
-
-const jwtToken = signToken({ id: user.id, email: user.email });
-res.json({ token: jwtToken, user: baseSanitizeUser(user) });
-
-  } catch (err) {
-    console.error(err);
-    res.status(401).json({ error: 'Google login failed' });
-  }
-});
-
-app.get('/api/auth/me', authMiddleware, async (req, res) => {
-  await db.read();
-  const user = db.data.users.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'not found' });
-  res.json({ user: baseSanitizeUser(user) });
-});
-*/
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
