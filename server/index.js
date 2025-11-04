@@ -1020,8 +1020,6 @@ if (isNew || !isProfileComplete) {
     status: "incomplete_profile",
     token: jwtToken,
     user: baseSanitizeUser(user),
-    //email: user.email // ADD THIS LINE
-
   });
 }
 
