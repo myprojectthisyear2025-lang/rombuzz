@@ -1200,19 +1200,26 @@ const token = signToken({ id: user.id, email: user.email });
 // 🔐 AUTH MIDDLEWARE
 // =======================
 function authMiddleware(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-    if (!token) return res.status(401).json({ error: 'No token provided' });
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
 
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded?.id) {
+      return res.status(401).json({ error: 'Invalid token structure' });
+    }
     req.user = { id: decoded.id, email: decoded.email };
-    next();
+    return next();
   } catch (err) {
-    console.error('Auth error:', err.message);
-    res.status(401).json({ error: 'Invalid or expired token' });
+    console.error('Auth middleware error:', err.message);
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
+
 // ----------------------
 // ✅ Current user (for App.jsx restore)
 // ----------------------
@@ -2400,9 +2407,14 @@ app.delete("/api/account/delete", authMiddleware, async (req, res) => {
   try {
     await db.read();
     db.data ||= {}; // ✅ ensure db.data exists even if undefined
-    const uid = req.user.id;
-    const user = (db.data.users || []).find((u) => u.id === uid);
-    if (!user) return res.status(404).json({ error: "User not found" });
+   const uid = req.user?.id;
+if (!uid) {
+  return res.status(401).json({ error: "Unauthorized: missing user ID" });
+}
+
+await db.read();
+const user = (db.data.users || []).find((u) => u.id === uid);
+if (!user) return res.status(404).json({ error: "User not found" });
 
     const emailLower = (user.email || "").trim().toLowerCase();
 
