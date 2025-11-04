@@ -3235,20 +3235,20 @@ if (requestedVibe && isRestricted(requestedVibe) && !canUseRestricted(me)) {
 let baseLat = parseFloat(lat) || self.location?.lat;
 let baseLng = parseFloat(lng) || self.location?.lng;
 
-if (process.env.NODE_ENV === 'production') {
-  // In production: require real coords
-  if (!baseLat || !baseLng) {
-    return res.status(400).json({
-      error: "Missing coordinates. Please allow location access.",
-    });
-  }
-} else {
-  // In dev: fall back so you can test on desktops without GPS
-  if (!baseLat || !baseLng) {
+ // 🌍 Handle coordinates more flexibly (even in production)
+if (!baseLat || !baseLng) {
+  // Try last known location
+  if (self.location?.lat && self.location?.lng) {
+    baseLat = self.location.lat;
+    baseLng = self.location.lng;
+  } else {
+    // Fallback (default = Chicago center)
     baseLat = Number(process.env.DEV_DEFAULT_LAT || 41.8781);
     baseLng = Number(process.env.DEV_DEFAULT_LNG || -87.6298);
+    console.warn("⚠️ DISCOVER fallback coords used (no GPS)");
   }
 }
+
 
 // ✅ Update user’s last known location if changed or missing
 if (!self.location || self.location.lat !== baseLat || self.location.lng !== baseLng) {
