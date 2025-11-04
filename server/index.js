@@ -3280,21 +3280,32 @@ if (!self.location || self.location.lat !== baseLat || self.location.lng !== bas
       );
 
     // 🗺️ Distance filter (if provided)
-    if (range > 0 && self.location?.lat && self.location?.lng) {
-      const R = 6371e3; // meters
-      candidates = candidates.filter((u) => {
-        if (!u.location?.lat || !u.location?.lng) return false;
-        const dLat = ((u.location.lat - baseLat) * Math.PI) / 180;
-        const dLng = ((u.location.lng - baseLng) * Math.PI) / 180;
-        const a =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos(baseLat * Math.PI / 180) *
-            Math.cos(u.location.lat * Math.PI / 180) *
-            Math.sin(dLng / 2) ** 2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c <= range;
-      });
-    }
+// Allow users with no saved location to still appear (as "inactive")
+if (self.location?.lat && self.location?.lng) {
+  const R = 6371e3; // meters
+
+  candidates = candidates.filter((u) => {
+    // If range = 0, include everyone regardless of distance
+    if (Number(range) <= 0) return true;
+
+    // If user has no location (inactive), still include them as fallback
+    if (!u.location?.lat || !u.location?.lng) return true;
+
+    // Otherwise, calculate actual distance
+    const dLat = ((u.location.lat - baseLat) * Math.PI) / 180;
+    const dLng = ((u.location.lng - baseLng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(baseLat * Math.PI / 180) *
+        Math.cos(u.location.lat * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const dist = R * c;
+
+    return dist <= range;
+  });
+}
+
 
     
     /* -----------------------------
@@ -3340,28 +3351,47 @@ if (vibe && canFilterWithRequestedVibe) {
       candidates = candidates.filter(
         (u) => (u.loveLanguage || "").toLowerCase() === love.toLowerCase()
       );
-
     /* -----------------------------
        ✨ Response Sanitization
     ------------------------------*/
-    const sanitize = (u) => ({
-      id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      avatar: u.avatar || "https://via.placeholder.com/400x400?text=No+Photo",
-      bio: u.bio || "",
-      gender: u.gender || "",
-      vibe: u.vibe || "",
-      intent: u.intent || "",
-      verified: u.verified || false,
-      zodiac: u.zodiac || "",
-      loveLanguage: u.loveLanguage || "",
-      distanceMeters: u.location
-        ? Math.round(getDistanceMeters(baseLat, baseLng, u.location.lat, u.location.lng))
-        : null,
-    });
+    const sanitize = (u) => {
+      const hasLocation = Boolean(u.location?.lat && u.location?.lng);
+      return {
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        avatar: u.avatar || "https://via.placeholder.com/400x400?text=No+Photo",
+        bio: u.bio || "",
+        gender: u.gender || "",
+        vibe: u.vibe || "",
+        intent: u.intent || "",
+        verified: u.verified || false,
+        zodiac: u.zodiac || "",
+        loveLanguage: u.loveLanguage || "",
+        distanceMeters: hasLocation
+          ? Math.round(getDistanceMeters(baseLat, baseLng, u.location.lat, u.location.lng))
+          : null,
+        active: hasLocation,
+        status: hasLocation ? "active" : "inactive", // 🆕 explicit status string
+      };
+    };
 
-    res.json({ users: candidates.map(sanitize) });
+    // 🧭 Sort: active first, then by distance, then inactive
+    const sorted = candidates
+      .map(sanitize)
+      .sort((a, b) => {
+        if (a.status === "active" && b.status === "inactive") return -1;
+        if (a.status === "inactive" && b.status === "active") return 1;
+        if (a.distanceMeters === null && b.distanceMeters !== null) return 1;
+        if (b.distanceMeters === null && a.distanceMeters !== null) return -1;
+        if (a.distanceMeters !== null && b.distanceMeters !== null) {
+          return a.distanceMeters - b.distanceMeters;
+        }
+        return 0;
+      });
+
+    res.json({ users: sorted });
+
   } catch (err) {
     console.error("❌ DISCOVER ERROR:", err);
     res.status(500).json({ error: "Internal error in /discover" });
