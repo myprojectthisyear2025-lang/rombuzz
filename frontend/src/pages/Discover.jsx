@@ -1149,9 +1149,16 @@ export default function Discover() {
                           ></span>
                         </div>
 
-                      <div className="text-sm opacity-90 line-clamp-2">
-                        {current.bio ? current.bio : "No bio yet."}
-                      </div>
+                    <div className="text-sm opacity-90 line-clamp-2">
+                            {current.bio ? current.bio : "No bio yet."}
+                          </div>
+
+                          {/* Distance (always shown, min 1 mile) */}
+                          <div className="text-sm mt-1 flex items-center gap-1 opacity-85">
+                            <FaMapMarkerAlt className="text-rose-400 inline" />
+                            <span>{current.distanceText || "—"}</span>
+                          </div>
+
 
                       <div className="text-xs opacity-80 italic mt-1">
                         {UX.TAP_TO_REVEAL ? "Drag to swipe • Tap to reveal" : "Drag to swipe"}
