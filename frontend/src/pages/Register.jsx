@@ -174,20 +174,32 @@ useEffect(() => {
    Stage 0 — Skip email verify (handled in Signup)
   --------------------------*/
 useEffect(() => {
-  // If verifiedEmail was passed, skip directly to registration wizard
-
-  // if coming from verified email
+  const token = localStorage.getItem("token");
+  const storedUser = localStorage.getItem("user");
+  
   if (location.state?.verifiedEmail) {
+    // Email verification flow
     setEmail(location.state.verifiedEmail);
     setStage(1);
-    // ensure password/name form appears right away
     setTimeout(() => setStep(1), 100);
+  } else if (token && storedUser) {
+    // Google signup flow
+    try {
+      const userData = JSON.parse(storedUser);
+      if (userData.email) {
+        setEmail(userData.email);
+        setStage(1);
+        setTimeout(() => setStep(1), 100);
+      } else {
+        navigate("/signup");
+      }
+    } catch {
+      navigate("/signup");
+    }
   } else {
     navigate("/signup");
   }
 }, [location.state, navigate]);
-
-
 
 
   /* -------------------------
