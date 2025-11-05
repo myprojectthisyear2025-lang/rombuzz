@@ -332,13 +332,36 @@ useEffect(() => {
         voiceUrl: form.voiceUrl || "",
       };
 
-      const res = await axios.post(`${API_BASE}/auth/register-full`, payload);
-      const { token, user } = res.data || {};
-      if (!token || !user) throw new Error("Malformed server response");
+      const token = localStorage.getItem("token");
+let res;
 
-      storeAuth(token, user, true);
-      setUser?.(user);
-      navigate("/discover");
+if (token) {
+  // 🧠 Google signup case — update existing account instead of re-registering
+  res = await axios.put(`${API_BASE}/users/complete-profile`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+} else {
+  // 📧 Normal email signup case
+  res = await axios.post(`${API_BASE}/auth/register-full`, payload);
+}
+
+const { token: newToken, user } = res.data || {};
+storeAuth(newToken || token, user, true);
+setUser?.(user);
+
+// 🧠 Optional: Preload user's posts so they appear instantly on profile/discover
+try {
+  await axios.get(`${API_BASE}/posts/me`, {
+    headers: { Authorization: `Bearer ${newToken || token}` },
+  });
+  console.log("✅ Prefetched user's posts after registration");
+} catch (err) {
+  console.warn("⚠️ Post prefetch skipped:", err.message);
+}
+
+navigate("/discover");
+
+
     } catch (e) {
       setError(
         e.response?.data?.error ||
