@@ -53,10 +53,11 @@ const [resetMsg, setResetMsg] = useState("");
       payload = { error: text || "Server returned non-JSON response" };
     }
 
-    if (!res.ok) {
-      return setError(payload.error || "Invalid credentials");
-    }
-
+   if (!res.ok) {
+  const errorMsg = payload.error || "Invalid credentials";
+  console.log("🔴 Login failed:", { status: res.status, error: errorMsg });
+  return setError(errorMsg);
+}
     const { token, user } = payload;
     if (!token || !user) {
       return setError("Malformed server response");
