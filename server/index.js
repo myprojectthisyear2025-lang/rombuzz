@@ -1291,6 +1291,31 @@ res.json(baseSanitizeUser(user));
   }
 });
 
+// =======================
+// 🧩 COMPLETE PROFILE (used by Register.jsx for Google users)
+// =======================
+app.put("/api/users/complete-profile", authMiddleware, async (req, res) => {
+  try {
+    await db.read();
+    const user = db.data.users.find(u => u.id === req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Merge all profile fields
+    Object.assign(user, req.body, {
+      profileComplete: true,
+      hasOnboarded: true,
+      updatedAt: Date.now(),
+    });
+
+    await db.write();
+
+    const safeUser = baseSanitizeUser(user);
+    res.json({ success: true, user: safeUser });
+  } catch (err) {
+    console.error("❌ PUT /api/users/complete-profile failed:", err);
+    res.status(500).json({ error: "Failed to complete profile" });
+  }
+});
 
 
 /* ======================
@@ -1870,11 +1895,39 @@ app.post("/api/auth/register-full", async (req, res) => {
   };
 
   db.data.users.push(user);
+await db.write();
+
+// ✅ Auto-create welcome posts for avatar and uploaded photos
+try {
+  const uploads = [];
+  if (user.avatar) uploads.push(user.avatar);
+  if (Array.isArray(user.photos)) uploads.push(...user.photos);
+
+  for (const fileUrl of uploads) {
+    db.data.posts.push({
+      id: shortid.generate(),
+      userId: user.id,
+      text:
+        fileUrl === user.avatar
+          ? `${user.firstName || "New user"} set their profile photo 💫`
+          : `${user.firstName || "New user"} shared a new photo 📸`,
+      mediaUrl: fileUrl,
+      type: "image",
+      privacy: "public",
+      createdAt: Date.now(),
+      reactions: {},
+      comments: [],
+    });
+  }
+
   await db.write();
+  console.log("✅ Created initial posts for new user");
+} catch (err) {
+  console.error("⚠️ Auto-post creation failed:", err);
+}
 
-  const token = signToken({ id: user.id, email: user.email });
+const token = signToken({ id: user.id, email: user.email });
 res.json({ token, user: baseSanitizeUser(user) });
-
 });
 
 // =======================
