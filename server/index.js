@@ -267,7 +267,7 @@ const buzzLocks = new Set();
 // =======================
 // 🛡️ CORS CONFIG (clean, unified)
 // =======================
-
+/*
 const allowedOrigins = [
   "https://rombuzz.com",
   "https://www.rombuzz.com",
@@ -290,15 +290,38 @@ app.use(
   })
 );
 // ✅ Handle all preflight OPTIONS requests safely (Express 5+ compatible)
-app.options(/.*/, cors());
+app.options(/.*/    /*, cors()); */
 
 
+const allowedOrigins = [
+  "https://rombuzz.com",
+  "https://www.rombuzz.com",
+  "https://rombuzz.vercel.app",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+const corsOptions = {
+  origin: function (origin, cb) {
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS: " + origin));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
+
+// Apply global CORS
+app.use(cors(corsOptions));
+// ✅ Handle all preflight OPTIONS requests safely (keep /.*/ syntax)
+app.options(/.*/, cors(corsOptions));
 
 
 // Basic middleware setup
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use(helmet());
+//app.use(helmet());
 app.use(
   helmet({
     crossOriginOpenerPolicy: false,
@@ -319,6 +342,7 @@ async function createNotification({ fromId, toId, type, message }) {
 // =======================
 // 🔔 SOCKET.IO SETUP
 // =======================
+/*
 const io = new Server(server, {
   cors: {
     origin: [
@@ -331,6 +355,21 @@ const io = new Server(server, {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
+});
+*/
+io.engine.on("headers", (headers, req) => {
+  const origin = req.headers.origin;
+  if (origin && [
+    "https://rombuzz.com",
+    "https://www.rombuzz.com",
+    "https://rombuzz.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ].includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+    headers["Vary"] = "Origin";
+  }
 });
 
 let onlineUsers = {};
