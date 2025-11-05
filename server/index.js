@@ -872,13 +872,21 @@ console.log("DEBUG LOGIN →", {
 // ✅ Compare hashed OR legacy plain password
 let match = false;
 try {
-  if (user.passwordHash) {
+  if (user.passwordHash && user.passwordHash.length > 0) {
+    // User signed up via direct email - use bcrypt
     match = await bcrypt.compare(password, user.passwordHash);
-  } else if (user.password && password === user.password) {
-    match = true;
+    console.log("🔐 Bcrypt comparison result:", match);
+  } else if (user.password) {
+    // Legacy plain password (shouldn't exist in new system)
+    match = password === user.password;
+    console.log("🔓 Legacy password match:", match);
+  } else {
+    // User signed up via Google - no password set
+    console.log("⚠️ User has no password set (Google signup)");
+    match = false;
   }
 } catch (err) {
-    console.error("bcrypt compare error:", err);
+  console.error("bcrypt compare error:", err);
 }
 if (!match) {
   console.warn("⚠️ Login failed for", emailLower);
@@ -889,7 +897,23 @@ if (!match) {
   const token = signToken({ id: user.id, email: user.email });
   res.json({ token, user: baseSanitizeUser(user) });
 });
-
+// =======================
+// 🐛 DEBUG: Check user accounts
+// =======================
+app.get("/api/debug/users", async (req, res) => {
+  await db.read();
+  res.json({
+    users: db.data.users.map(u => ({
+      id: u.id,
+      email: u.email,
+      hasPasswordHash: !!u.passwordHash,
+      passwordHashLength: u.passwordHash ? u.passwordHash.length : 0,
+      hasLegacyPassword: !!u.password,
+      signupMethod: u.passwordHash ? "direct" : "google",
+      createdAt: u.createdAt
+    }))
+  });
+});
 
 // =======================
 // 🔁 FORGOT / RESET PASSWORD (Persistent Version)
