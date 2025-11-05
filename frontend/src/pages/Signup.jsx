@@ -38,7 +38,7 @@ export default function Signup({ setUser }) {
     try {
       const res = await axios.post(`${API_BASE}/auth/send-code`, { email });
       if (res.data.success) {
-        setSuccess("Verification code sent to your email.");
+        setSuccess("Verification code sent to your email. Please check your inbox/spam folder.");
         setStep(2);
         setCountdown(60);
         setTimeout(() => codeInputRef.current?.focus(), 200);
