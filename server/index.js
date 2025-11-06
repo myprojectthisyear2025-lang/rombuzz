@@ -1037,7 +1037,7 @@ res.json({
 });
 */
 // =======================
-// 🔐 GOOGLE LOGIN / SIGNUP (Fixed lowercase + no duplicate res.json)
+// 🔐 GOOGLE LOGIN / SIGNUP (MongoDB version)
 // =======================
 app.post("/api/auth/google", async (req, res) => {
   const { token } = req.body;
@@ -1051,10 +1051,8 @@ app.post("/api/auth/google", async (req, res) => {
     const payload = ticket.getPayload();
     const email = String(payload.email || "").toLowerCase();
 
-    await db.read();
-    let user = db.data.users.find(
-      (u) => String(u.email || "").toLowerCase() === email
-    );
+    const users = db.collection("users");
+    let user = await users.findOne({ email });
     const isNew = !user;
 
     // ✅ Create new Google user if not found
@@ -1066,13 +1064,9 @@ app.post("/api/auth/google", async (req, res) => {
         lastName: payload.family_name || "",
         avatar: payload.picture || "",
         passwordHash: "",
-        createdAt: Date.now(),
-
-        // Flags
+        createdAt: new Date().toISOString(),
         profileComplete: false,
         hasOnboarded: false,
-
-        // Placeholders
         bio: "",
         dob: null,
         gender: "",
@@ -1098,20 +1092,19 @@ app.post("/api/auth/google", async (req, res) => {
           photos: "matches",
         },
       };
-      db.data.users.push(user);
-      await db.write();
+
+      await users.insertOne(user);
     }
 
     const jwtToken = signToken({ id: user.id, email: user.email });
-    const isProfileComplete = Boolean(user.profileComplete);
 
     // ✅ Decide redirect target
-    if (isNew || !isProfileComplete) {
+    if (isNew || !user.profileComplete) {
       console.log("🧩 Returning INCOMPLETE_PROFILE for:", user.email);
       return res.json({
         status: "incomplete_profile",
         token: jwtToken,
-        user: baseSanitizeUser(user),
+        user,
       });
     }
 
@@ -1119,13 +1112,14 @@ app.post("/api/auth/google", async (req, res) => {
     return res.json({
       status: "ok",
       token: jwtToken,
-      user: baseSanitizeUser(user),
+      user,
     });
   } catch (err) {
     console.error("❌ Google login failed:", err);
     res.status(401).json({ error: "Google login failed" });
   }
 });
+
 
 // =======================
 // 🧩 COMPLETE PROFILE ROUTE
