@@ -62,7 +62,7 @@ const {
    - Serializes writes
    - Retries EPERM/EBUSY with backoff
 -------------------------------------------- */
-const _rawWrite = db.write.bind(db);
+//const _rawWrite = db.write.bind(db);
 let _writeQueue = Promise.resolve();
 
 async function writeWithRetry() {
