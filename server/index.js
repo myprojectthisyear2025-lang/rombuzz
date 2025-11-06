@@ -277,50 +277,41 @@ let onlineUsers = {};
 // ✅ Top-level notification helper (NOT inside io.on)
 global.sendNotification = async (toId, payload) => {
   try {
-    await db.read();
-    
-    // Ensure notifications array exists
-    if (!db.data.notifications) {
-      db.data.notifications = [];
+    const notifications = db.collection("notifications");
+
+    const newNotif = {
+      id: shortid.generate(),
+      toId,
+      fromId: payload.fromId || null,
+      type: payload.type || "system",
+      message: payload.message || "You have a new notification!",
+      createdAt: new Date().toISOString(),
+      read: false,
+
+      // 🆕 optional deep-link data (frontend will use if present)
+      href: payload.href || null,
+      entity: payload.entity || null,     // e.g. "post"
+      entityId: payload.entityId || null, // e.g. postId
+      postId: payload.postId || null,     // alias
+      postOwnerId: payload.postOwnerId || null, // owner of that post
+    };
+
+    // ✅ store in MongoDB
+    await notifications.insertOne(newNotif);
+
+    // 👉 emit to user's private room
+    io.to(String(toId)).emit("notification", newNotif);
+
+    if (onlineUsers[toId]) {
+      console.log("📨 Notification sent to room of:", toId);
+    } else {
+      console.log("📨 Notification saved, user currently offline (room emit queued):", toId);
     }
-    
-   const newNotif = {
-  id: shortid.generate(),
-  toId,
-  fromId: payload.fromId || null,
-  type: payload.type || "system",
-  message: payload.message || "You have a new notification!",
-  createdAt: new Date().toISOString(),
-  read: false,
-
-  // 🆕 optional deep-link data (frontend will use if present)
-  href: payload.href || null,
-  // optional entity context
-  entity: payload.entity || null,            // e.g. "post"
-  entityId: payload.entityId || null,        // e.g. postId
-  postId: payload.postId || null,            // alias
-  postOwnerId: payload.postOwnerId || null,  // owner of that post
-};
-
-    
-    db.data.notifications.push(newNotif);
-    await db.write();
-
-  // 👉 De-dupe emit: only to the private room
-io.to(String(toId)).emit("notification", newNotif);
-if (onlineUsers[toId]) {
-  console.log("📨 Notification sent to room of:", toId);
-} else {
-  console.log("📨 Notification saved, user currently offline (room emit queued):", toId);
-}
-
-
-    
   } catch (error) {
     console.error("❌ sendNotification error:", error);
-    // Don't throw - just log the error
   }
 };
+
 // =======================
 // Single connection handler
 // =======================
