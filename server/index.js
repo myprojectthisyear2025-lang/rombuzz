@@ -33,26 +33,27 @@ const signToken = (user) => jwt.sign({ id: user.id, email: user.email }, JWT_SEC
 
 
 // =======================
-// 📦 DATABASE (LowDB)
+// 📦 DATABASE (MongoDB via config/db.js)
 // =======================
-const db = new Low(new JSONFile('db.json'));
+const {
+  connectMongo,
+  db,
+  users,
+  posts,
+  likes,
+  matches,
+  notifications,
+  messages,
+  blocks,
+  reports,
+  roomMessages,
+  matchStreaks,
+} = require("./config/db");
 
 (async () => {
-  await db.read();
-  db.data ||= {
-    users: [],
-    posts: [],
-    likes: [],
-    matches: [],
-    notifications: [],
-    messages: [],
-    blocks: [],
-    reports: [],
-    roomMessages: [],
-    matchStreaks: {},
-  };
-  await db.write();
+  await connectMongo();
 })();
+
 
 // =======================
 // 🧹 One-time password migration (plain → hash)
@@ -1844,7 +1845,6 @@ app.post("/api/notifications/block/:userId", authMiddleware, async (req, res) =>
 
 // ✅ Extended registration route for verified users (Register.jsx)
 app.post("/api/auth/register-full", async (req, res) => {
-  await db.read();
   const {
     email,
     firstName,
@@ -1867,67 +1867,72 @@ app.post("/api/auth/register-full", async (req, res) => {
     return res.status(400).json({ error: "Missing required fields." });
   }
 
-  let user = db.data.users.find((u) => u.email === email);
-  if (user) {
-    return res.status(400).json({ error: "Account already exists." });
-  }
+  try {
+    const existing = await users.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ error: "Account already exists." });
+    }
 
-  user = {
-    id: shortid.generate(),
-    email,
-    firstName,
-    lastName,
-    password,
-    gender,
-    dob,
-    lookingFor,
-    interestedIn,
-    preferences: preferences || {},
-    visibilityMode: visibilityMode || "auto",
-    interests: interests || [],
-    avatar: avatar || "",
-    photos: photos || [],
-    phone: phone || "",
-    voiceUrl: voiceUrl || "",
-    createdAt: Date.now(),
-    verified: true,
-    premium: false,
-  };
-
-  db.data.users.push(user);
-await db.write();
-
-// ✅ Auto-create welcome posts for avatar and uploaded photos
-try {
-  const uploads = [];
-  if (user.avatar) uploads.push(user.avatar);
-  if (Array.isArray(user.photos)) uploads.push(...user.photos);
-
-  for (const fileUrl of uploads) {
-    db.data.posts.push({
+    const user = {
       id: shortid.generate(),
-      userId: user.id,
-      text:
-        fileUrl === user.avatar
-          ? `${user.firstName || "New user"} set their profile photo 💫`
-          : `${user.firstName || "New user"} shared a new photo 📸`,
-      mediaUrl: fileUrl,
-      type: "image",
-      privacy: "public",
+      email,
+      firstName,
+      lastName,
+      password,
+      gender,
+      dob,
+      lookingFor,
+      interestedIn,
+      preferences: preferences || {},
+      visibilityMode: visibilityMode || "auto",
+      interests: interests || [],
+      avatar: avatar || "",
+      photos: photos || [],
+      phone: phone || "",
+      voiceUrl: voiceUrl || "",
       createdAt: Date.now(),
-      reactions: {},
-      comments: [],
-    });
+      verified: true,
+      premium: false,
+    };
+
+    // insert user into MongoDB
+    await users.insertOne(user);
+
+    // ✅ Auto-create welcome posts for avatar and uploaded photos
+    try {
+      const uploads = [];
+      if (user.avatar) uploads.push(user.avatar);
+      if (Array.isArray(user.photos)) uploads.push(...user.photos);
+
+      const postDocs = uploads.map((fileUrl) => ({
+        id: shortid.generate(),
+        userId: user.id,
+        text:
+          fileUrl === user.avatar
+            ? `${user.firstName || "New user"} set their profile photo 💫`
+            : `${user.firstName || "New user"} shared a new photo 📸`,
+        mediaUrl: fileUrl,
+        type: "image",
+        privacy: "public",
+        createdAt: Date.now(),
+        reactions: {},
+        comments: [],
+      }));
+
+      if (postDocs.length > 0) {
+        await posts.insertMany(postDocs);
+        console.log("✅ Created initial posts for new user");
+      }
+    } catch (err) {
+      console.error("⚠️ Auto-post creation failed:", err);
+    }
+
+    const token = signToken({ id: user.id, email: user.email });
+    res.json({ token, user: baseSanitizeUser(user) });
+  } catch (err) {
+    console.error("register-full error:", err);
+    res.status(500).json({ error: "Registration failed." });
   }
-
-  await db.write();
-  console.log("✅ Created initial posts for new user");
-} catch (err) {
-  console.error("⚠️ Auto-post creation failed:", err);
-}
-
-const token = signToken({ id: user.id, email: user.email });
-res.json({ token, user: baseSanitizeUser(user) });
 });
 
 // =======================
