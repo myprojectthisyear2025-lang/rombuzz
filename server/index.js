@@ -57,45 +57,6 @@ const {
 
 
 
-/* -------------------------------------------
-   🛡️ Global write guard for Windows EPERM
-   - Serializes writes
-   - Retries EPERM/EBUSY with backoff
--------------------------------------------- */
-//const _rawWrite = db.write.bind(db);
-let _writeQueue = Promise.resolve();
-
-async function writeWithRetry() {
-  // chain to ensure single writer
-  _writeQueue = _writeQueue.then(async () => {
-    const MAX_TRIES = 6;               // ~ cumulative ~1s backoff
-    let attempt = 0;
-    while (true) {
-      try {
-        await _rawWrite();
-        return;
-      } catch (err) {
-        const code = err && err.code;
-        if (code === 'EPERM' || code === 'EBUSY') {
-          attempt++;
-          if (attempt >= MAX_TRIES) throw err;
-          // exponential-ish backoff: 50, 100, 150, 200, 250, 300ms
-          const delay = 50 * attempt;
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        // other errors: rethrow
-        throw err;
-      }
-    }
-  });
-  return _writeQueue;
-}
-
-// Monkey-patch LowDB's write everywhere
-db.write = writeWithRetry;
-
-
 
 // ===== Cloudinary =====
 cloudinary.config({
