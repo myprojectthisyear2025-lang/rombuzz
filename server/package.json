@@ -20,6 +20,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "lowdb": "^5.1.0",
+    "mongodb": "^6.20.0",
     "multer": "^2.0.2",
     "process": "^0.11.10",
     "shortid": "^2.2.17",
