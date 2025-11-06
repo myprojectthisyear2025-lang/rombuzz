@@ -55,30 +55,7 @@ const {
 })();
 
 
-// =======================
-// 🧹 One-time password migration (plain → hash)
-// =======================
-(async () => {
-  try {
-    await db.read();
-    let updated = 0;
-    for (const u of db.data.users || []) {
-      if (u.password && !u.passwordHash) {
-        u.passwordHash = await bcrypt.hash(u.password, 10);
-        delete u.password;
-        updated++;
-      }
-    }
-    if (updated > 0) {
-      await db.write();
-      console.log(`🔒 Migrated ${updated} legacy plain-text password(s) to hashed version`);
-    } else {
-      console.log("✅ No legacy passwords found — all accounts already hashed");
-    }
-  } catch (err) {
-    console.error("⚠️ Password migration error:", err);
-  }
-})();
+
 
 /* -------------------------------------------
    🛡️ Global write guard for Windows EPERM
