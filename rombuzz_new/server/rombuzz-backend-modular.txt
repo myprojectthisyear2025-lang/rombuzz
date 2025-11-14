@@ -1,0 +1,51 @@
+rombuzz-backend-modular/
+│
+├── index.js                      ← main server entry
+│
+├── routes/                       ← all modular route files
+│   ├── auth.js
+│   ├── posts.js
+│   ├── microbuzz.js
+│   ├── buzzComments.js
+│   └── ...
+│
+├── models/                       ← Mongo models + legacy LowDB guards
+│   ├── User.js
+│   ├── db.lowdb.js
+│   ├── writeGuard.js
+│   ├── state.js
+│   └── ...
+│
+├── config/                       ← configuration files
+│   ├── env.js
+│   ├── cors.js
+│   ├── security.js
+│   ├── socket.js
+│   ├── sendgrid.js
+│   ├── cloudinary.js
+│   └── config.js
+│
+├── modules/                      ← background tasks + helpers
+│   ├── health.js                 ← ✅ your /api/health route
+│   ├── aiWingmanTask.js
+│   ├── mongoInit.js
+│   ├── system.js
+│   └── ...
+│
+├── sockets/                      ← socket event handlers
+│   ├── connection.js
+│   ├── meetSocket.js
+│   └── ...
+│
+├── utils/                        ← shared utilities
+│   ├── jwt.js
+│   ├── helpers.js
+│   ├── notifications.js
+│   ├── vibes.js
+│   └── ...
+│
+├── package.json                  ← must include "start": "node index.js"
+├── package-lock.json             ← (optional but recommended)
+├── .gitignore                    ← to ignore env, uploads, node_modules
+├── .env.example                  ← placeholder example for others
+└── README.md                     ← optional, description of backend

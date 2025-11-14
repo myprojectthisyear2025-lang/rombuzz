@@ -1,0 +1,17 @@
+# Secrets and configs
+.env
+db.json
+u.email
+*.key
+*.pem
+
+# Node dependencies
+node_modules/
+uploads/
+logs/
+
+# System files
+.DS_Store
+npm-debug.log*
+structure.txt
+split_rombuzz_backend.py
